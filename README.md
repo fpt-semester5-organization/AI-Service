@@ -20,13 +20,12 @@ veggielife-ai-service/
 │   ├── main.py               (tạo khi code) tạo FastAPI app, include routers, load model Whisper 1 lần khi khởi động
 │   ├── core/                 config.py (đọc .env bằng pydantic-settings) · security.py (kiểm X-Internal-Api-Key)
 │   ├── api/
-│   │   └── routers/          health.py · stt.py · vision.py · venues.py (mỗi file = 1 nhóm endpoint)
+│   │   └── routers/          health.py · stt.py · vision.py (mỗi file = 1 nhóm endpoint)
 │   ├── services/
 │   │   ├── stt/              audio (FFmpeg → WAV 16 kHz mono) · whisper (faster-whisper int8) · recipe_extractor (Gemini) · url_downloader (yt-dlp)
-│   │   ├── vision/           ingredient_detector (ảnh tủ lạnh) · label_ocr (ảnh nhãn → E-number), đều dùng Gemini Vision
-│   │   └── venues/           delivery_matcher (khớp quán HappyCow ↔ ShopeeFood/GrabFood) · menu_pipeline (điều phối + cache)
+│   │   └── vision/           ingredient_detector (ảnh tủ lạnh) · label_ocr (ảnh nhãn → E-number), đều dùng Gemini Vision
 │   └── schemas/              Pydantic request/response, alias camelCase để khớp JSON của backend
-└── tests/                    pytest: test_health, test_security, test_stt, test_vision, test_venues
+└── tests/                    pytest: test_health, test_security, test_stt, test_vision
 ```
 
 Các file gốc khi khởi tạo (đặt ở root): `requirements.txt`, `Dockerfile`, `deploy.sh`, `.env.example`, `.gitignore`.
@@ -43,13 +42,14 @@ Các file gốc khi khởi tạo (đặt ở root): `requirements.txt`, `Dockerf
 | POST | `/stt/url-to-recipe` | Link TikTok/Reels | ⚠ chờ chốt có thuộc MVP không |
 | POST | `/vision/detect-ingredients` | Ảnh tủ lạnh → nguyên liệu + confidence | D32 (Gemini Vision, không dùng YOLO), BR-AI-CV-01 |
 | POST | `/vision/ocr-label` | Ảnh nhãn thành phần → mã E-number | BR-GUEST-07 |
-| POST | `/venues/menu-sync` | Quán → danh sách món (Source: SHOPEEFOOD / GRABFOOD) | D34 |
+
+> **Thực đơn quán và đối soát ShopeeFood/GrabFood: ngoài phạm vi MVP** (theo quyết định D100, chỉ hiển thị thông tin quán cơ bản bên backend .NET; bảng `VenueMenuItems` giữ trong Data Model nhưng không hiện thực).
 
 ---
 
 ## 3. Chuyển code từ prototype
 
-Nhóm có 2 prototype: **Whisper Prototype** (STT video → công thức) và **HappyCow Prototype** (thực đơn quán). Xin Leader bản mới nhất, tải về máy rồi mở song song với repo này. **Không** copy cả thư mục prototype vào repo.
+Nhóm có prototype: **Whisper Prototype** (STT video → công thức). Xin Leader bản mới nhất, tải về máy rồi mở song song với repo này. **Không** copy cả thư mục prototype vào repo.
 
 | Prototype | File trong prototype | Chuyển vào |
 |---|---|---|
@@ -57,18 +57,15 @@ Nhóm có 2 prototype: **Whisper Prototype** (STT video → công thức) và **
 | Whisper | `gemini_service.py` | `services/stt/recipe_extractor` |
 | Whisper | `url_service.py` | `services/stt/url_downloader` |
 | Whisper | `Dockerfile`, `deploy.sh` | root repo |
-| HappyCow | `delivery_matcher.py` | `services/venues/delivery_matcher` |
-| HappyCow | `hybrid_pipeline.py` | `services/venues/menu_pipeline`, **chỉ giữ tầng ShopeeFood/GrabFood** |
+
+> **Thực đơn quán và đối soát ShopeeFood/GrabFood: ngoài phạm vi MVP** (không chuyển HappyCow Prototype, `delivery_matcher.py` hay `hybrid_pipeline.py`).
 
 Prototype có file `.env` chứa API key thật: **không** copy file này, chỉ dựa vào `.env.example`.
 
 **Không chuyển:**
 - web UI test (`templates/`, `static/`);
-- `gemini_menu_ocr.py` và `synthetic_menu_generator.py`: theo quyết định 05/10, nguồn món chỉ gồm SHOPEEFOOD, GRABFOOD, MANUAL; các tầng OCR, crowdsourcing, AI synthetic để Phase 2;
+- Prototype HappyCow / Thực đơn quán / ShopeeFood / GrabFood (đã loại khỏi phạm vi MVP theo quyết định D100);
 - `/summarize-recipe`, `/video-chat`, trừ khi FR yêu cầu.
-
-**⚠ D34 (bắt buộc):** API của ShopeeFood/GrabFood không công khai và việc gọi vi phạm ToS. Khi chuyển `delivery_matcher.py`, **xóa** mọi đoạn proxy, giả User-Agent hay né WAF. Gặp lỗi bị chặn thì trả "không khớp" để backend dùng dữ liệu Admin nhập.
-Quy tắc khớp quán: khoảng cách Haversine ≤ **300 m** **và** độ giống tên ≥ **75%**.
 
 ---
 
@@ -89,13 +86,12 @@ pip install -r requirements.txt        # cần ffmpeg: brew install ffmpeg
 uvicorn app.main:app --reload --port 8080
 ```
 
-`requirements.txt`: gộp từ 2 prototype, bỏ `jinja2`, thêm `pydantic-settings`, `pytest`, `rapidfuzz`.
+`requirements.txt`: gộp từ prototype, bỏ `jinja2`, thêm `pydantic-settings`, `pytest`.
 Biến môi trường:
 - `WHISPER_MODEL`, `WHISPER_COMPUTE_TYPE`, `WHISPER_DEVICE`
 - `GEMINI_API_KEY`, `GEMINI_MODEL`
 - `INTERNAL_API_KEY`
 - `MAX_UPLOAD_MB`
-- `MENU_MATCH_MAX_DISTANCE_M=300`, `MENU_MATCH_MIN_NAME_SCORE=75`
 - `PORT`
 
 Deploy lên Cloud Run với `--min-instances 0 --memory 4Gi --cpu 2` (giống prototype).
@@ -105,7 +101,6 @@ Deploy lên Cloud Run với `--min-instances 0 --memory 4Gi --cpu 2` (giống pr
 - **Ngưỡng Vision:** giá trị 3 ngưỡng confidence (BR-AI-CV-01).
 - **Video:** giới hạn dung lượng và thời lượng.
 - **URL-to-recipe:** có thuộc MVP không.
-- **HappyCow:** cách lấy dữ liệu hợp lệ.
 - **Lượt AI của Guest:** 05 lượt dùng chung hay tách theo loại.
 
 Danh sách đầy đủ các mục còn thiếu: hỏi Leader (file tổng hợp "Dữ liệu còn thiếu" của nhóm).
