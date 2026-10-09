@@ -9470,9 +9470,10 @@ paths:
       - CHAT
       operationId: createChatSessionMessage
       summary: FN-CHAT-02 Gửi câu hỏi & nhận tư vấn
-      description: 'Gửi câu hỏi tới trợ lý AI và nhận tư vấn kèm miễn trừ y khoa, công thức gợi ý và nguồn tham chiếu. Trợ lý dùng RAG: truy xuất
-        tri thức liên quan từ kho vector Qdrant (công thức, bài viết, video đã duyệt, tài liệu dinh dưỡng, từ điển) rồi mới sinh câu trả lời.
-        Hạn mức: Khách dùng chung 03 lượt AI/phiên (BR-GUEST-02); Thành viên Free 20 câu/ngày; VIP tối đa 200 câu/ngày (BR-USR-10, BR-PAY-SUB-01).
+      description: 'Gửi câu hỏi tới trợ lý AI và nhận tư vấn kèm miễn trừ y khoa, công thức gợi ý và nguồn tham chiếu. Trợ lý dùng RAG: AI service
+        truy xuất tri thức liên quan từ kho vector Qdrant (công thức, bài viết, video đã duyệt, tài liệu dinh dưỡng, từ điển) rồi mới sinh câu
+        trả lời; Backend chỉ kiểm hạn mức, cung cấp ngữ cảnh và lưu kết quả (D118). Hạn mức: Khách dùng chung 03 lượt AI/phiên (BR-GUEST-02);
+        Thành viên Free 20 câu/ngày; VIP tối đa 200 câu/ngày (BR-USR-10, BR-PAY-SUB-01).
 
 
         Auth: Bearer (GUEST | MEMBER | VIP).'
@@ -9521,7 +9522,8 @@ paths:
                     remaining: 18
                     scope: DAILY
         '400':
-          description: 'ERR_VALIDATION: Dữ liệu đầu vào không hợp lệ. | ERR_CHAT_UNSAFE_CONTENT: Nội dung vi phạm tiêu chuẩn an toàn.'
+          description: 'ERR_VALIDATION: Dữ liệu đầu vào không hợp lệ. | ERR_CHAT_UNSAFE_CONTENT: Nội dung vi phạm tiêu chuẩn an toàn (vẫn tính
+            lượt).'
           content:
             application/json:
               schema:
@@ -9545,7 +9547,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: 'ERR_AI_CIRCUIT_OPEN: Mạch AI đang ngắt tạm thời (BR-ADM-AI-002).'
+          description: 'ERR_AI_CIRCUIT_OPEN: Mạch AI đang ngắt tạm thời (BR-ADM-AI-002). | ERR_EXT_QDRANT_UNAVAILABLE: Qdrant không phản hồi hoặc
+            quá 3 giây (AI service báo).'
           content:
             application/json:
               schema:
@@ -9746,10 +9749,11 @@ paths:
       - CHAT
       operationId: createAdminKnowledgeReindex
       summary: FN-CHAT-07 Đồng bộ kho tri thức RAG (Qdrant)
-      description: 'Nạp và giữ đồng bộ kho vector Qdrant (collection veggielife_knowledge) dùng cho chatbot RAG. Nguồn tri thức: công thức đã
-        duyệt (APPROVED_ACTIVE); bài viết cộng đồng đã duyệt; bản phiên âm và công thức tóm tắt của video thuộc nội dung đã duyệt; tài liệu dinh
-        dưỡng chay chuẩn do nhóm soạn (WHO/ADA, BR-SCI-01); từ điển E-number, nhóm dị ứng, nguyên liệu. Hệ thống tự động upsert/xóa khi nội dung
-        đổi trạng thái; Admin có thể đồng bộ lại toàn bộ hoặc theo nguồn và xem trạng thái.
+      description: 'Nạp và giữ đồng bộ kho vector Qdrant (collection veggielife_knowledge) dùng cho chatbot RAG: Backend quyết định và đẩy nội
+        dung đã duyệt, AI service tách đoạn, embedding và ghi vào Qdrant (D118). Nguồn tri thức: công thức đã duyệt (APPROVED_ACTIVE); bài viết
+        cộng đồng đã duyệt; bản phiên âm và công thức tóm tắt của video thuộc nội dung đã duyệt; tài liệu dinh dưỡng chay chuẩn do nhóm soạn (WHO/ADA,
+        BR-SCI-01); từ điển E-number, nhóm dị ứng, nguyên liệu. Hệ thống tự động upsert/xóa khi nội dung đổi trạng thái; Admin có thể đồng bộ
+        lại toàn bộ hoặc theo nguồn và xem trạng thái.
 
 
         Auth: Bearer (ADMIN).'
@@ -9794,7 +9798,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: 'ERR_EXT_QDRANT_UNAVAILABLE: Qdrant không phản hồi. | ERR_AI_CIRCUIT_OPEN: Mạch AI đang ngắt tạm thời (BR-ADM-AI-002).'
+          description: 'ERR_EXT_QDRANT_UNAVAILABLE: Qdrant không phản hồi hoặc quá 3 giây (AI service báo). | ERR_AI_CIRCUIT_OPEN: Mạch AI đang
+            ngắt tạm thời (BR-ADM-AI-002).'
           content:
             application/json:
               schema:
@@ -9813,10 +9818,11 @@ paths:
       - CHAT
       operationId: listAdminKnowledgeStatus
       summary: FN-CHAT-07 Đồng bộ kho tri thức RAG (Qdrant)
-      description: 'Nạp và giữ đồng bộ kho vector Qdrant (collection veggielife_knowledge) dùng cho chatbot RAG. Nguồn tri thức: công thức đã
-        duyệt (APPROVED_ACTIVE); bài viết cộng đồng đã duyệt; bản phiên âm và công thức tóm tắt của video thuộc nội dung đã duyệt; tài liệu dinh
-        dưỡng chay chuẩn do nhóm soạn (WHO/ADA, BR-SCI-01); từ điển E-number, nhóm dị ứng, nguyên liệu. Hệ thống tự động upsert/xóa khi nội dung
-        đổi trạng thái; Admin có thể đồng bộ lại toàn bộ hoặc theo nguồn và xem trạng thái.
+      description: 'Nạp và giữ đồng bộ kho vector Qdrant (collection veggielife_knowledge) dùng cho chatbot RAG: Backend quyết định và đẩy nội
+        dung đã duyệt, AI service tách đoạn, embedding và ghi vào Qdrant (D118). Nguồn tri thức: công thức đã duyệt (APPROVED_ACTIVE); bài viết
+        cộng đồng đã duyệt; bản phiên âm và công thức tóm tắt của video thuộc nội dung đã duyệt; tài liệu dinh dưỡng chay chuẩn do nhóm soạn (WHO/ADA,
+        BR-SCI-01); từ điển E-number, nhóm dị ứng, nguyên liệu. Hệ thống tự động upsert/xóa khi nội dung đổi trạng thái; Admin có thể đồng bộ
+        lại toàn bộ hoặc theo nguồn và xem trạng thái.
 
 
         Auth: Bearer (ADMIN).'
@@ -9862,7 +9868,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '503':
-          description: 'ERR_EXT_QDRANT_UNAVAILABLE: Qdrant không phản hồi.'
+          description: 'ERR_EXT_QDRANT_UNAVAILABLE: Qdrant không phản hồi hoặc quá 3 giây (AI service báo).'
           content:
             application/json:
               schema:
