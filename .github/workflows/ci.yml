@@ -1,0 +1,60 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.12.4
+        ports: ["6333:6333"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - name: pytest (Gemini giả lập; Qdrant thật qua service container)
+        env:
+          QDRANT_TEST_URL: http://localhost:6333
+        run: pytest -q
+      - name: Build image ai-service
+        run: docker build -t veggielife-ai-service:ci .
+
+  live-vertex:
+    # Gọi Vertex AI thật (tốn credit): chỉ khi merge vào develop. Cần secret GCP_SA_KEY, GCP_PROJECT.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: test
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.12.4
+        ports: ["6333:6333"]
+    env:
+      INTERNAL_API_KEY: ci-key
+      GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GOOGLE_CLOUD_LOCATION: asia-southeast1
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/vertex-sa.json
+      QDRANT_URL: http://localhost:6333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: requirements-dev.txt }
+      - run: pip install -r requirements-dev.txt
+      - run: echo '${{ secrets.GCP_SA_KEY }}' > vertex-sa.json
+      - run: python -m scripts.check_vertex
+      - name: Chạy service và chấm golden set
+        run: |
+          uvicorn app.main:app --port 8080 &
+          for i in $(seq 1 30); do curl -sf -H "X-Internal-Api-Key: ci-key" localhost:8080/health && break || sleep 1; done
+          python -m scripts.load_fixtures --base-url http://localhost:8080 --key ci-key --nutrition
+          python -m tests.rag.eval_golden --base-url http://localhost:8080 --key ci-key --out golden-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: golden-report, path: golden-report.json }
