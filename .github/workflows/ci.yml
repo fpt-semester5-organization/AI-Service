@@ -26,6 +26,8 @@ jobs:
         run: pytest -q
       - name: Build image ai-service
         run: docker build -t veggielife-ai-service:ci .
+      - name: Build image stt-service (không tải model Whisper trong CI)
+        run: docker build -f Dockerfile.stt --build-arg PRELOAD_MODEL=0 -t veggielife-stt:ci .
 
   live-vertex:
     # Gọi Vertex AI thật (tốn credit): chỉ khi merge vào develop. Cần secret GCP_SA_KEY, GCP_PROJECT.
