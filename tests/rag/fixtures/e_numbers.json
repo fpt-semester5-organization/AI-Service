@@ -1,0 +1,122 @@
+[
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "100",
+    "title": "E100 — Curcumin",
+    "text": "E100 (Curcumin): Chất tạo màu vàng chiết từ củ nghệ, có nguồn gốc thực vật; thường phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "120",
+    "title": "E120 — Carmine (cochineal)",
+    "text": "E120 (Carmine (cochineal)): Chất tạo màu đỏ làm từ côn trùng cochineal, có nguồn gốc động vật; KHÔNG phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "129",
+    "title": "E129 — Allura Red AC",
+    "text": "E129 (Allura Red AC): Phẩm màu đỏ tổng hợp, không có nguồn gốc động vật; thường phù hợp với người ăn chay (một số người nhạy cảm với phẩm màu azo)."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "150",
+    "title": "E150a — Caramel thường",
+    "text": "E150a (Caramel thường): Chất tạo màu nâu từ đường nấu cháy; thường phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "153",
+    "title": "E153 — Than thực vật",
+    "text": "E153 (Than thực vật): Chất tạo màu đen từ than thực vật; phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "160",
+    "title": "E160a — Beta-caroten",
+    "text": "E160a (Beta-caroten): Chất tạo màu cam từ thực vật như cà rốt, cũng có thể tổng hợp; thường phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "162",
+    "title": "E162 — Betanin (đỏ củ dền)",
+    "text": "E162 (Betanin (đỏ củ dền)): Chất tạo màu đỏ từ củ dền; có nguồn gốc thực vật, phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "270",
+    "title": "E270 — Axit lactic",
+    "text": "E270 (Axit lactic): Chất điều chỉnh độ chua; phần lớn sản xuất bằng lên men carbohydrate nên thường phù hợp với người ăn chay, nhưng cần xem nhà sản xuất vì có thể liên quan đến sữa."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "322",
+    "title": "E322 — Lecithin",
+    "text": "E322 (Lecithin): Chất nhũ hóa, thường chiết từ đậu nành hoặc hướng dương nên phù hợp với người ăn chay; lecithin từ trứng ít gặp hơn. Người dị ứng đậu nành cần chú ý."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "330",
+    "title": "E330 — Axit citric",
+    "text": "E330 (Axit citric): Chất điều chỉnh độ chua, sản xuất bằng lên men nấm; phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "407",
+    "title": "E407 — Carrageenan",
+    "text": "E407 (Carrageenan): Chất làm đặc chiết từ rong biển đỏ; có nguồn gốc thực vật, phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "410",
+    "title": "E410 — Gôm đậu châu chấu",
+    "text": "E410 (Gôm đậu châu chấu): Chất làm đặc từ hạt cây carob; có nguồn gốc thực vật, phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "415",
+    "title": "E415 — Gôm xanthan",
+    "text": "E415 (Gôm xanthan): Chất làm đặc tạo ra bằng lên men vi sinh; phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "422",
+    "title": "E422 — Glycerol",
+    "text": "E422 (Glycerol): Chất giữ ẩm; có thể có nguồn gốc thực vật hoặc mỡ động vật, cần xem thông tin nhà sản xuất nên không chắc chắn là thuần chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "441",
+    "title": "E441 — Gelatin",
+    "text": "E441 (Gelatin): Chất tạo đông được làm từ collagen của da, xương động vật; KHÔNG phù hợp với người ăn chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "471",
+    "title": "E471 — Mono và diglyceride của acid béo",
+    "text": "E471 (Mono và diglyceride của acid béo): Chất nhũ hóa có thể có nguồn gốc thực vật hoặc động vật; cần kiểm tra nguồn nên không chắc chắn là thuần chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "901",
+    "title": "E901 — Sáp ong",
+    "text": "E901 (Sáp ong): Chất tạo bóng từ sáp ong, có nguồn gốc động vật; KHÔNG phù hợp với người ăn thuần chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "904",
+    "title": "E904 — Shellac (cánh kiến)",
+    "text": "E904 (Shellac (cánh kiến)): Chất tạo bóng từ chất tiết của côn trùng lac; có nguồn gốc động vật, KHÔNG phù hợp với người ăn thuần chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "920",
+    "title": "E920 — L-cysteine",
+    "text": "E920 (L-cysteine): Chất cải thiện bột, có thể làm từ lông vũ hoặc tóc động vật hoặc lên men vi sinh; cần kiểm tra nguồn, không chắc chắn là thuần chay."
+  },
+  {
+    "sourceType": "E_NUMBER",
+    "sourceId": "966",
+    "title": "E966 — Lactitol",
+    "text": "E966 (Lactitol): Chất tạo ngọt sản xuất từ lactose của sữa; không phù hợp với người ăn thuần chay và người dị ứng sữa."
+  }
+]

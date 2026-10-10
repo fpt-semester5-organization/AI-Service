@@ -1,0 +1,24 @@
+# Chạy local: ai-service + Qdrant (cùng mạng nội bộ; D118). stt-service chạy riêng (Dockerfile.stt).
+# Đổi cổng Qdrant trên máy nếu 6333 đang bị dự án khác dùng:  QDRANT_HOST_PORT=16333 docker compose -f docker-compose.dev.yml up -d
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports: ["${QDRANT_HOST_PORT:-6333}:6333"]   # chỉ để debug ở local; staging không mở cổng
+    volumes: [qdrantdata:/qdrant/storage]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q 200 <&3'"]
+      interval: 5s
+      retries: 12
+  ai-service:
+    build: .
+    env_file: .env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/vertex-sa.json
+    volumes:
+      - ./knowledge:/app/knowledge:ro
+      - ${GOOGLE_CREDENTIALS_FILE:-./secrets/vertex-sa.json}:/run/secrets/vertex-sa.json:ro
+    depends_on: { qdrant: { condition: service_healthy } }
+    ports: ["8081:8080"]      # chỉ mở cho Backend; không công khai ra Internet
+volumes:
+  qdrantdata: {}

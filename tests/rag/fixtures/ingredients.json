@@ -1,0 +1,62 @@
+[
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "1",
+    "title": "Đậu phụ",
+    "text": "Thực phẩm làm từ đậu nành, giàu đạm thực vật và canxi nếu được đông tụ bằng muối canxi. Nhóm dị ứng: đậu nành."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "2",
+    "title": "Tempeh",
+    "text": "Thực phẩm lên men từ đậu nành, giàu đạm và chất xơ. Nhóm dị ứng: đậu nành."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "3",
+    "title": "Đậu lăng",
+    "text": "Họ đậu giàu đạm, sắt và chất xơ, nấu nhanh, không cần ngâm lâu."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "4",
+    "title": "Nấm hương",
+    "text": "Nấm có hương vị đậm, dùng nấu nước dùng chay; cung cấp vitamin D khi phơi nắng."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "5",
+    "title": "Hạnh nhân",
+    "text": "Quả hạch giàu vitamin E và chất béo tốt. Nhóm dị ứng: quả hạch."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "6",
+    "title": "Yến mạch",
+    "text": "Ngũ cốc giàu chất xơ beta-glucan; người cần tránh gluten nên chọn loại ghi nhãn không gluten."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "7",
+    "title": "Đậu gà",
+    "text": "Họ đậu giàu đạm và chất xơ, dùng cho cà ri, salad và hummus."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "8",
+    "title": "Rong biển nori",
+    "text": "Rong biển dạng lá dùng cuộn cơm; chứa i-ốt, cần dùng vừa phải."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "9",
+    "title": "Nước tương",
+    "text": "Gia vị lên men từ đậu nành và lúa mì. Nhóm dị ứng: đậu nành, gluten."
+  },
+  {
+    "sourceType": "INGREDIENT",
+    "sourceId": "10",
+    "title": "Nước cốt dừa",
+    "text": "Chất béo từ cùi dừa, dùng trong cà ri và chè; nhiều chất béo bão hòa nên dùng vừa phải."
+  }
+]

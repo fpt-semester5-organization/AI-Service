@@ -1,0 +1,32 @@
+[
+  {
+    "sourceType": "ALLERGEN",
+    "sourceId": "1",
+    "title": "Dị ứng Đậu nành",
+    "text": "Đậu nành và các sản phẩm như đậu hũ, tempeh, sữa đậu nành, tương, nước tương có thể gây dị ứng. Cần đọc nhãn vì lecithin và protein đậu nành xuất hiện trong nhiều thực phẩm chế biến."
+  },
+  {
+    "sourceType": "ALLERGEN",
+    "sourceId": "2",
+    "title": "Dị ứng Gluten (lúa mì)",
+    "text": "Gluten có trong lúa mì, lúa mạch, mạch đen; nhiều sản phẩm thịt chay seitan làm từ gluten. Người bệnh celiac và dị ứng lúa mì cần tránh."
+  },
+  {
+    "sourceType": "ALLERGEN",
+    "sourceId": "3",
+    "title": "Dị ứng Đậu phộng",
+    "text": "Đậu phộng gây dị ứng nặng ở một số người; xuất hiện trong sốt, bánh kẹo và nhiều món chay. Phải đọc nhãn cảnh báo."
+  },
+  {
+    "sourceType": "ALLERGEN",
+    "sourceId": "4",
+    "title": "Dị ứng Quả hạch",
+    "text": "Quả hạch như hạnh nhân, óc chó, hạt điều gây dị ứng ở một số người; thường dùng làm sữa hạt và phô mai thuần chay."
+  },
+  {
+    "sourceType": "ALLERGEN",
+    "sourceId": "5",
+    "title": "Dị ứng Mè (vừng)",
+    "text": "Hạt mè có thể gây dị ứng, thường có trong dầu mè, tahini và bánh mì; cần đọc nhãn."
+  }
+]
