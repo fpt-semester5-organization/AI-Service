@@ -175,3 +175,23 @@ def test_concurrency_is_serialized():
         await asyncio.gather(*(engine.transcribe(__import__("pathlib").Path("x.wav")) for _ in range(4)))
     asyncio.run(run())
     assert peak == 1
+
+
+def test_warmup_runs_a_short_silent_transcription_and_tolerates_nothing_else():
+    np = pytest.importorskip("numpy")
+    model = FakeWhisperModel(text="")
+    engine = WhisperEngine(stt_settings(), model_factory=lambda s: model)
+    engine.warmup()
+    assert engine.loaded
+    audio = model.calls[0]["path"]
+    assert isinstance(audio, np.ndarray) and audio.dtype == np.float32 and not audio.any()
+    assert model.calls[0]["beam_size"] == 1
+
+
+def test_startup_survives_failing_warmup(monkeypatch):
+    pytest.importorskip("numpy")
+    model = FakeWhisperModel(fail=RuntimeError("không có tính toán"))
+    engine = WhisperEngine(stt_settings(), model_factory=lambda s: model)
+    app = create_stt_app(stt_settings(), llm=FakeLLM(), engine=engine, preload=True)
+    with TestClient(app) as c:                       # lifespan chạy load + warmup lỗi nhưng không sập
+        assert c.get("/health", headers=HEADERS).json()["whisper"] == "loaded"

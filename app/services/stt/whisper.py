@@ -45,6 +45,15 @@ class WhisperEngine:
                      self._s.whisper_compute_type)
             self._model = self._factory(self._s)
 
+    def warmup(self) -> None:
+        """Phiên âm 2 giây im lặng để nạp bộ nhớ và khởi tạo luồng tính toán; yêu cầu thật đầu tiên không bị chậm hơn."""
+        import numpy as np  # có sẵn cùng faster-whisper; nhập muộn như bản thân thư viện
+        self.load()
+        segments, _ = self._model.transcribe(np.zeros(32000, dtype="float32"), language=self._s.whisper_language or None,
+                                             beam_size=1)
+        for _ in segments:
+            pass
+
     def _transcribe_sync(self, wav: Path) -> Transcription:
         self.load()
         segments, info = self._model.transcribe(

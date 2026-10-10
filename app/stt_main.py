@@ -37,6 +37,10 @@ def create_stt_app(settings: Settings | None = None, llm: LLMClient | None = Non
     async def lifespan(_: FastAPI):
         if do_preload:
             engine.load()  # nạp model khi khởi động để yêu cầu đầu tiên không phải chờ
+            try:
+                engine.warmup()
+            except Exception:  # noqa: BLE001 — khởi động nóng thất bại không được làm sập dịch vụ
+                log.warning("Chạy thử Whisper khi khởi động thất bại; yêu cầu đầu tiên có thể chậm hơn.", exc_info=True)
         yield
 
     app = FastAPI(title="VeggieLife STT Service", version="0.1.0", lifespan=lifespan,
