@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Bí mật
+.env
+*.json.key
+service-account*.json
+gcp-*.json
+
+# Tài liệu gốc có thể có bản quyền (D120): chỉ commit README và danh mục
+knowledge/sources/*
+!knowledge/sources/README.md
+!knowledge/sources/CATALOG.md
+
+# Hệ điều hành
+.DS_Store
+
+# Tệp sinh khi chạy
+golden-report.json
+secrets/
+
+# Sách có bản quyền đặt tại chỗ để chạy scripts/ingest_books.py (KHÔNG commit): thư mục dạng 01_Ten_Sach/
+knowledge/nutrition/[0-9][0-9]_*/
+# Mọi tệp sách/tài liệu gốc dạng nhị phân
+*.pdf
+*.epub
+*.mobi
+*.azw3
+
+# Khóa, thông tin xác thực
+secrets/
+*.pem
+*-sa.json
+veggielife-*.json
