@@ -196,3 +196,25 @@ Theo Sprint Plan, S5-P2 diễn ra D3–D4 của Sprint 5 (14–15/10); phần Ba
 - Chốt `WHISPER_MODEL` (`base` hay `small`) sau khi đo ở G0.
 - Giữ `/stt/transcribe` multipart (kèm giới hạn 32 MiB trên Cloud Run) hay bỏ khỏi hợp đồng và chỉ giữ `/stt/video-to-recipe`.
 - `WHISPER_LANGUAGE`: cố định `vi` hay tự nhận diện (video có thể trộn từ tiếng Anh).
+
+---
+
+## 11. Tiến độ thực hiện (10/10/2026)
+
+| Giai đoạn | Trạng thái | Ghi chú |
+|---|---|---|
+| G0 Chuẩn bị | Xong | Số đo ở mục 7.1; chốt `small`, beam 5 |
+| G1 Khung | Xong | `stt_main.py`, `/health`, khóa nội bộ, `Dockerfile.stt` (build và chạy thử trong container: 401 không khóa, 200 có khóa, chạy bằng user không phải root), compose, CI |
+| G2 Media và Whisper | Xong | `media.py`, `audio.py`, `whisper.py`, `/stt/transcribe`; ca biên 9/10/300/300,1 giây và 8000/16000 Hz có test |
+| G3 Công thức | Xong | `recipe_extractor.py`, `/stt/video-to-recipe`; chạy thật với Vertex: 3/3 test `live` đạt |
+| G4 An toàn và lỗi | Xong | chống SSRF (https, đúng host, không IP/userinfo/cổng lạ, kiểm lại từng lần chuyển hướng), giới hạn tải, dọn tệp tạm, 1 tác vụ mỗi instance, ánh xạ mã lỗi |
+| G5 Cloud Run | **Chưa làm — cần người có quyền project** | `scripts/deploy_stt.sh` và `cloudbuild.stt.yaml` đã viết, chưa chạy; chưa đo P95 trên Cloud Run thật |
+
+**Kiểm thử:** 141 test đạt (đơn vị + tích hợp; Whisper và Gemini giả), 3 test `live` đạt (Whisper `small` + Vertex AI thật, video 64 giây xử lý ~20,7 giây).
+
+**Container (Docker Desktop trên Mac, máy ảo 3,8 GiB RAM):** với video 64 giây, yêu cầu đầu tiên 38,4 giây, lần sau 29,9 giây. Đây chỉ là số tham khảo vì máy ảo chậm hơn chạy trực tiếp (~20 giây); không thay cho đo trên Cloud Run.
+
+**Phát hiện khi làm cần Leader biết:**
+- Đọc trọng số lần đầu rất chậm trong container (yêu cầu đầu tiên chậm gấp đôi). Đã thêm bước chạy thử Whisper lúc khởi động (`WhisperEngine.warmup`); đổi lại khởi động mất tới ~2 phút trong Docker Desktop. Trên Cloud Run cần đặt startup probe và `--cpu-boost` đủ lớn (script đã bật `--cpu-boost`; timeout khởi động mặc định của Cloud Run là 240 giây).
+- Thêm mã lỗi `NOT_A_RECIPE` (422) khi lời thoại không phải công thức, ngoài danh sách ở mục 4.
+- Lời gọi tới stt-service nên đặt timeout ≥ 150 giây ở Backend.
