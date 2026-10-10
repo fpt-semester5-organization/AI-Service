@@ -123,7 +123,7 @@ Nguồn chuẩn là **Phụ lục B.3 của Sprint Plan** (`plan/16. Context imp
   - Gemini qua **Vertex AI** (D120): `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION=asia-southeast1`, `GEMINI_MODEL=gemini-2.5-flash`, `GEMINI_TIMEOUT_SECONDS=10`.
   - Xác thực: Cloud Run dùng service account gắn sẵn; VPS và máy local đặt `GOOGLE_APPLICATION_CREDENTIALS` trỏ tới tệp JSON của service account (không commit).
   - Khác: `INTERNAL_API_KEY`, `MAX_UPLOAD_MB`, `PORT`.
-- **stt-service:** `WHISPER_MODEL`, `WHISPER_COMPUTE_TYPE=int8`, `WHISPER_DEVICE`.
+- **stt-service:** `WHISPER_MODEL`, `WHISPER_COMPUTE_TYPE=int8`, `WHISPER_DEVICE`, `WHISPER_LANGUAGE=vi`, `WHISPER_CPU_THREADS` (= số vCPU), `WHISPER_BEAM_SIZE`, `STT_MIN_SECONDS=10`, `STT_MAX_SECONDS=300`, `STT_MIN_SAMPLE_RATE=16000`, `STT_MAX_UPLOAD_MB=100`, `STT_ALLOWED_VIDEO_HOSTS=res.cloudinary.com`, `STT_CONCURRENCY=1`.
 - **ai-service:** `QDRANT_URL`, `QDRANT_API_KEY` (rỗng ở local), `QDRANT_COLLECTION=veggielife_knowledge`, `EMBEDDING_MODEL=gemini-embedding-001`, `EMBEDDING_DIMENSIONS=768`, `RAG_TOP_K=5`, `RAG_MIN_SCORE=0.65`, `RAG_TIMEOUT_SECONDS=3`.
 
 ---
@@ -144,6 +144,14 @@ Nạp dữ liệu mẫu và chấm chất lượng (cần Vertex thật):
 ```bash
 python -m scripts.load_fixtures --base-url http://localhost:8080 --key $INTERNAL_API_KEY --nutrition
 python -m tests.rag.eval_golden --base-url http://localhost:8080 --key $INTERNAL_API_KEY --out golden-report.json
+```
+
+stt-service (cần `ffmpeg`: `brew install ffmpeg`; Whisper: `pip install -r requirements-stt.txt`):
+
+```bash
+uvicorn app.stt_main:app --port 8082                       # /health, /stt/transcribe, /stt/video-to-recipe
+python -m scripts.check_stt <video.mp4> --models small medium --threads 2   # đo thời gian, RAM, phiên âm từng model
+./scripts/deploy_stt.sh                                    # triển khai Cloud Run (xem điều kiện ở đầu tệp)
 ```
 
 Backend gọi ai-service và Qdrant chạy chung bằng `docker compose` (xem `docker-compose.dev.yml` và `docs/05`). stt-service chạy local trên cổng 8082 bằng `Dockerfile.stt`.
