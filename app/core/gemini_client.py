@@ -34,9 +34,17 @@ class Generation:
 
 
 @dataclass
+class ImagePart:
+    """Ảnh gửi kèm lời nhắc (Vision, kiểm duyệt ảnh): byte thô + MIME đã được kiểm chữ ký tệp."""
+    data: bytes
+    mime_type: str
+
+
+@dataclass
 class Message:
     role: str  # "user" | "model"
     text: str
+    images: tuple[ImagePart, ...] = ()  # chỉ dùng cho lượt "user"; thứ tự: văn bản trước, ảnh sau
 
 
 class LLMClient(Protocol):
@@ -104,7 +112,8 @@ class GeminiClient:
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None) -> Generation:
         client = self._get()
-        contents = [types.Content(role=m.role, parts=[types.Part(text=m.text)]) for m in messages]
+        contents = [types.Content(role=m.role, parts=[types.Part(text=m.text), *(
+            types.Part.from_bytes(data=i.data, mime_type=i.mime_type) for i in m.images)]) for m in messages]
         cfg = types.GenerateContentConfig(
             system_instruction=system,
             temperature=temperature,
