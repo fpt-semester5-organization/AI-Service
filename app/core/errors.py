@@ -44,6 +44,10 @@ def media_invalid(message: str) -> AiServiceError:
     return AiServiceError("MEDIA_INVALID", message, 400)
 
 
+def image_invalid(message: str) -> AiServiceError:
+    return AiServiceError("IMAGE_INVALID", message, 400)
+
+
 def duration_invalid(message: str) -> AiServiceError:
     return AiServiceError("DURATION_INVALID", message, 400)
 
