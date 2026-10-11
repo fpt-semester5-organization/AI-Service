@@ -129,3 +129,20 @@ def test_parse_json_object():
     assert parse_json_object('{"a": 1}') == {"a": 1}
     assert parse_json_object('```json\n{"a": 1}\n```') == {"a": 1}
     assert parse_json_object("không phải json") is None and parse_json_object("[1]") is None
+
+
+async def test_generate_sends_image_parts_after_text():
+    from app.core.gemini_client import ImagePart
+    c, models = client_with([gen_response("{}")])
+    msg = Message("user", "mô tả", images=(ImagePart(b"\x89PNGdata", "image/png"),))
+    await c.generate("sys", [msg], temperature=0.2, max_output_tokens=64, json_schema={"type": "OBJECT"})
+    parts = models.calls[0][1]["contents"][0].parts
+    assert parts[0].text == "mô tả" and parts[1].inline_data.mime_type == "image/png"
+    assert parts[1].inline_data.data == b"\x89PNGdata"
+
+
+async def test_generate_text_only_message_unchanged():
+    c, models = client_with([gen_response("{}")])
+    await c.generate("sys", [Message("user", "xin chào")], temperature=0.2, max_output_tokens=64)
+    parts = models.calls[0][1]["contents"][0].parts
+    assert len(parts) == 1 and parts[0].text == "xin chào"
