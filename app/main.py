@@ -3,13 +3,15 @@ import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+import httpx
 from fastapi import FastAPI
 
-from app.api.routers import chat, health, rag
+from app.api.routers import chat, health, moderation, rag
 from app.core.config import Settings, get_settings
 from app.core.errors import AiServiceError, register_handlers
 from app.core.gemini_client import GeminiClient, LLMClient
 from app.services.chat.answerer import ChatAnswerer
+from app.services.moderation.checker import ContentModerator
 from app.services.rag.chunker import Chunker
 from app.services.rag.embedder import Embedder
 from app.services.rag.indexer import Indexer
@@ -26,9 +28,11 @@ class Container:
     store: QdrantStore
     indexer: Indexer
     answerer: ChatAnswerer
+    moderator: ContentModerator
 
 
-def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None) -> Container:
+def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None,
+                    http_client: httpx.AsyncClient | None = None) -> Container:
     llm = llm or GeminiClient(settings)
     store = store or QdrantStore(settings)
     embedder = Embedder(llm, concurrency=settings.embedding_concurrency)
@@ -36,13 +40,14 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
                       overlap_tokens=settings.rag_chunk_overlap, concurrency=settings.embedding_concurrency)
     indexer = Indexer(chunker, embedder, store)
     retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score)
-    return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever))
+    return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever),
+                     ContentModerator(settings, llm, http_client))
 
 
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
-               store: QdrantStore | None = None) -> FastAPI:
+               store: QdrantStore | None = None, http_client: httpx.AsyncClient | None = None) -> FastAPI:
     settings = settings or get_settings()
-    container = build_container(settings, llm, store)
+    container = build_container(settings, llm, store, http_client)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -62,6 +67,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
     app.include_router(health.router)
     app.include_router(rag.router)
     app.include_router(chat.router)
+    app.include_router(moderation.router)
     return app
 
 
