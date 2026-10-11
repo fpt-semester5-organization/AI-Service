@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     stt_recipe_temperature: float = 0.2    # B.4: tác vụ có cấu trúc ≤ 0,4
     stt_recipe_max_output_tokens: int = 2048
 
+    # Giới hạn tải lên cho ảnh (BR-AI-CV-01): ≤ 10 MB, ≥ 640×480
+    max_upload_mb: int = 10
+    image_min_width: int = 640
+    image_min_height: int = 480
+
+    # Kiểm duyệt (FN-POST-03/04/07)
+    moderation_temperature: float = 0.1
+    moderation_max_output_tokens: int = 512
+    moderation_max_images: int = 4
+    moderation_image_hosts: str = "res.cloudinary.com"   # phân tách bằng dấu phẩy (chống SSRF)
+    moderation_image_timeout_seconds: float = 10.0
+
     # Chat
     chat_history_turns: int = 6
     chat_temperature: float = 0.3
@@ -64,6 +76,10 @@ class Settings(BaseSettings):
     # Swagger UI tại /docs: chỉ bật ở local/staging, KHÔNG bật ở production
     enable_docs: bool = False
 
+
+    @property
+    def moderation_allowed_image_hosts(self) -> list[str]:
+        return [h.strip().lower() for h in self.moderation_image_hosts.split(",") if h.strip()]
 
     @property
     def stt_allowed_hosts(self) -> list[str]:
