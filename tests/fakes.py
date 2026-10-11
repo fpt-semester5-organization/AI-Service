@@ -33,6 +33,7 @@ class FakeLLM:
         self.embed_calls: list[tuple[str, str]] = []
         self.count_calls = 0
         self.generate_calls: list[tuple[str, list[Message]]] = []
+        self.generate_kwargs: list[dict] = []   # temperature, max_output_tokens, json_schema của từng lần gọi
 
     def configured(self) -> bool:
         return True
@@ -51,6 +52,8 @@ class FakeLLM:
         if self.fail:
             raise self.fail
         self.generate_calls.append((system, messages))
+        self.generate_kwargs.append({"temperature": temperature, "max_output_tokens": max_output_tokens,
+                                     "json_schema": json_schema})
         text = self.reply if self.reply is not None else '{"answer": "Trả lời mẫu [S1].", "recommendedRecipeIds": []}'
         return Generation(text=text, model="fake-model", prompt_tokens=10, completion_tokens=5,
                           latency_ms=3, temperature=temperature)
