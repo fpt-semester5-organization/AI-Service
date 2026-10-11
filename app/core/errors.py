@@ -40,6 +40,18 @@ def ai_timeout(message: str = "Quá thời gian chờ AI.") -> AiServiceError:
     return AiServiceError("AI_TIMEOUT", message, 504)
 
 
+def image_invalid(message: str) -> AiServiceError:
+    return AiServiceError("IMAGE_INVALID", message, 400)
+
+
+def file_too_large(message: str) -> AiServiceError:
+    return AiServiceError("FILE_TOO_LARGE", message, 413)
+
+
+def media_download_failed(message: str = "Không tải được ảnh từ imageUrls.") -> AiServiceError:
+    return AiServiceError("MEDIA_DOWNLOAD_FAILED", message, 502)
+
+
 def register_handlers(app: FastAPI) -> None:
     @app.exception_handler(AiServiceError)
     async def _ai_error(_: Request, exc: AiServiceError) -> JSONResponse:
