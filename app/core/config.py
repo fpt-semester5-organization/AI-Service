@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     moderation_image_hosts: str = "res.cloudinary.com"   # phân tách bằng dấu phẩy (chống SSRF)
     moderation_image_timeout_seconds: float = 10.0
 
+    # Vision (FN-VIS-01)
+    vision_temperature: float = 0.2
+    vision_max_output_tokens: int = 1024
+
     # Chat
     chat_history_turns: int = 6
     chat_temperature: float = 0.3

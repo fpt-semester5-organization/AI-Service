@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import httpx
 from fastapi import FastAPI
 
-from app.api.routers import chat, health, moderation, rag
+from app.api.routers import chat, health, moderation, rag, vision
 from app.core.config import Settings, get_settings
 from app.core.errors import AiServiceError, register_handlers
 from app.core.gemini_client import GeminiClient, LLMClient
@@ -17,6 +17,7 @@ from app.services.rag.embedder import Embedder
 from app.services.rag.indexer import Indexer
 from app.services.rag.qdrant_store import QdrantStore
 from app.services.rag.retriever import Retriever
+from app.services.vision.ingredient_detector import IngredientDetector
 
 log = logging.getLogger("veggielife")
 
@@ -29,6 +30,7 @@ class Container:
     indexer: Indexer
     answerer: ChatAnswerer
     moderator: ContentModerator
+    ingredient_detector: IngredientDetector
 
 
 def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None,
@@ -41,7 +43,8 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
     indexer = Indexer(chunker, embedder, store)
     retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score)
     return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever),
-                     ContentModerator(settings, llm, http_client))
+                     ContentModerator(settings, llm, http_client),
+                     IngredientDetector(settings, llm))
 
 
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
@@ -68,6 +71,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
     app.include_router(rag.router)
     app.include_router(chat.router)
     app.include_router(moderation.router)
+    app.include_router(vision.router)
     return app
 
 
