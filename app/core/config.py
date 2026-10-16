@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     google_cloud_location: str = "asia-southeast1"
     # Tệp JSON service account khi chạy local/VPS; Cloud Run dùng service account gắn sẵn (để trống).
     google_application_credentials: str = ""
+    # Hoặc dùng API key Google AI Studio trực tiếp (khi google_genai_use_vertexai = False)
+    gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
     gemini_timeout_seconds: float = 10.0
     gemini_max_retries: int = 2

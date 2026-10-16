@@ -13,9 +13,10 @@ from tests.fakes import FakeLLM
 from tests.image_helpers import jpeg, png, webp
 
 GOOD = {"items": [
-    {"name": "Cà chua", "confidence": 0.93, "freshnessStatus": "FRESH", "isAnimalProduct": False},
-    {"name": "Trứng gà", "confidence": 0.8, "freshnessStatus": "FRESH", "isAnimalProduct": True},
-    {"name": "Rau muống", "confidence": 0.7, "freshnessStatus": "NON-FRESH", "isAnimalProduct": False}]}
+    {"name": "Cà chua", "confidence": 0.93, "freshnessStatus": "FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False},
+    {"name": "Trứng gà", "confidence": 0.8, "freshnessStatus": "FRESH", "foodGroup": "Trứng", "isAnimalProduct": True, "isRedMeat": False},
+    {"name": "Thịt bò", "confidence": 0.88, "freshnessStatus": "FRESH", "foodGroup": "Thịt đỏ", "isAnimalProduct": True, "isRedMeat": True},
+    {"name": "Rau muống", "confidence": 0.7, "freshnessStatus": "NON-FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False}]}
 URL = "/vision/detect-ingredients"
 
 
@@ -33,8 +34,23 @@ def test_detect_ok(settings, store):
         r = post(c, jpeg(1280, 720))
     assert r.status_code == 200
     body = r.json()
-    assert [i["name"] for i in body["items"]] == ["Cà chua", "Trứng gà", "Rau muống"]
-    assert body["items"][1] == {"name": "Trứng gà", "confidence": 0.8, "freshnessStatus": "FRESH", "isAnimalProduct": True}
+    assert [i["name"] for i in body["items"]] == ["Cà chua", "Trứng gà", "Thịt bò", "Rau muống"]
+    assert body["items"][1] == {
+        "name": "Trứng gà",
+        "confidence": 0.8,
+        "freshnessStatus": "FRESH",
+        "foodGroup": "Trứng",
+        "isAnimalProduct": True,
+        "isRedMeat": False,
+    }
+    assert body["items"][2] == {
+        "name": "Thịt bò",
+        "confidence": 0.88,
+        "freshnessStatus": "FRESH",
+        "foodGroup": "Thịt đỏ",
+        "isAnimalProduct": True,
+        "isRedMeat": True,
+    }
     assert body["usage"]["model"] == "fake-model"
     # ảnh thật sự được chuyển cho Gemini, MIME lấy từ chữ ký tệp; nhiệt độ thấp, có JSON schema
     system, msgs = llm.generate_calls[0]
@@ -51,7 +67,7 @@ def test_detect_with_image_field_name(settings, store):
         r = post(c, jpeg(1280, 720), field="image")
     assert r.status_code == 200
     body = r.json()
-    assert len(body["items"]) == 3
+    assert len(body["items"]) == len(GOOD["items"])
 
 
 @pytest.mark.parametrize("data,mime", [(png(640, 480), "image/png"), (webp(800, 600), "image/webp")])
@@ -124,14 +140,19 @@ def test_gemini_failure_maps_to_502_and_timeout_to_504(settings, store):
 
 def test_normalize_drops_bad_items_clamps_and_dedupes():
     out = normalize({"items": [
-        {"name": " Cà chua ", "confidence": 1.7, "freshnessStatus": "FRESH", "isAnimalProduct": False},
-        {"name": "cà chua", "confidence": 0.2, "freshnessStatus": "NON-FRESH", "isAnimalProduct": False},
-        {"name": "Hành", "confidence": -1, "freshnessStatus": "FRESH", "isAnimalProduct": False},
+        {"name": " Cà chua ", "confidence": 1.7, "freshnessStatus": "FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False},
+        {"name": "cà chua", "confidence": 0.2, "freshnessStatus": "NON-FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False},
+        {"name": "Hành", "confidence": -1, "freshnessStatus": "FRESH", "foodGroup": "Gia vị", "isAnimalProduct": False, "isRedMeat": False},
+        {"name": "Thịt bò", "confidence": 0.95, "freshnessStatus": "FRESH", "foodGroup": "Thịt đỏ", "isAnimalProduct": True, "isRedMeat": True},
         {"name": "Ớt", "confidence": "0.9", "freshnessStatus": "FRESH", "isAnimalProduct": False},      # sai kiểu
         {"name": "Tỏi", "confidence": 0.9, "freshnessStatus": "ROTTEN", "isAnimalProduct": False},      # sai enum
         {"name": "Gừng", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": "no"},       # sai kiểu
         {"name": "", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False}, "oops"]})
-    assert [(i.name, i.confidence) for i in out] == [("Cà chua", 1.0), ("Hành", 0.0)]
+    assert [(i.name, i.confidence, i.food_group, i.is_red_meat) for i in out] == [
+        ("Cà chua", 1.0, "Rau củ", False),
+        ("Hành", 0.0, "Gia vị", False),
+        ("Thịt bò", 0.95, "Thịt đỏ", True),
+    ]
 
 
 def test_schema_is_valid_for_google_sdk():
@@ -139,3 +160,62 @@ def test_schema_is_valid_for_google_sdk():
     types.Schema.model_validate(RESPONSE_SCHEMA)
     with pytest.raises(ValidationError):
         types.Schema.model_validate({**RESPONSE_SCHEMA, "requird": ["x"]})
+
+
+def test_five_sample_scenarios(settings, store):
+    """Kiểm thử 5 kịch bản ảnh mẫu theo tiêu chuẩn nghiệm thu:
+    1. Ảnh 1: Tủ lạnh rau củ tươi đạt chuẩn (JPEG ≥ 640×480) -> Nhận diện nguyên liệu tươi, nhóm thực phẩm
+    2. Ảnh 2: Thực phẩm rau héo (PNG ≥ 640×480) -> Nhận diện NON-FRESH để cảnh báo/ưu tiên dùng sớm
+    3. Ảnh 3: Tủ lạnh có thịt đỏ (WEBP ≥ 640×480) -> Nhận diện và đánh dấu isRedMeat=True, foodGroup='Thịt đỏ'
+    4. Ảnh 4: Ảnh quá nhỏ (< 640×480) -> Bị từ chối với 400 IMAGE_INVALID
+    5. Ảnh 5: Tệp giả mạo (không phải ảnh thật, sai magic bytes) -> Bị từ chối với 400 IMAGE_INVALID
+    """
+    # Sample 1: JPEG tươi
+    llm1 = FakeLLM(json.dumps({
+        "items": [{"name": "Cà chua", "confidence": 0.95, "freshnessStatus": "FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False}]
+    }))
+    with TestClient(create_app(settings, llm=llm1, store=store)) as c:
+        r1 = post(c, jpeg(800, 600))
+        assert r1.status_code == 200
+        data1 = r1.json()["items"]
+        assert len(data1) == 1
+        assert data1[0]["freshnessStatus"] == "FRESH"
+        assert data1[0]["foodGroup"] == "Rau củ"
+        assert data1[0]["isRedMeat"] is False
+
+    # Sample 2: PNG rau héo (NON-FRESH)
+    llm2 = FakeLLM(json.dumps({
+        "items": [{"name": "Rau muống", "confidence": 0.85, "freshnessStatus": "NON-FRESH", "foodGroup": "Rau củ", "isAnimalProduct": False, "isRedMeat": False}]
+    }))
+    with TestClient(create_app(settings, llm=llm2, store=store)) as c:
+        r2 = post(c, png(640, 480))
+        assert r2.status_code == 200
+        data2 = r2.json()["items"]
+        assert len(data2) == 1
+        assert data2[0]["freshnessStatus"] == "NON-FRESH"
+
+    # Sample 3: WEBP có thịt đỏ
+    llm3 = FakeLLM(json.dumps({
+        "items": [{"name": "Thịt bò", "confidence": 0.92, "freshnessStatus": "FRESH", "foodGroup": "Thịt đỏ", "isAnimalProduct": True, "isRedMeat": True}]
+    }))
+    with TestClient(create_app(settings, llm=llm3, store=store)) as c:
+        r3 = post(c, webp(1024, 768))
+        assert r3.status_code == 200
+        data3 = r3.json()["items"]
+        assert len(data3) == 1
+        assert data3[0]["isRedMeat"] is True
+        assert data3[0]["isAnimalProduct"] is True
+        assert data3[0]["foodGroup"] == "Thịt đỏ"
+
+    # Sample 4: Ảnh quá nhỏ (320x240 px < 640x480) -> Từ chối 400 IMAGE_INVALID
+    with TestClient(create_app(settings, llm=FakeLLM("{}"), store=store)) as c:
+        r4 = post(c, jpeg(320, 240))
+        assert r4.status_code == 400
+        assert r4.json()["errorCode"] == "IMAGE_INVALID"
+
+    # Sample 5: Tệp giả mạo (file PDF/text đổi đuôi .jpg) -> Từ chối 400 IMAGE_INVALID
+    fake_data = b"%PDF-1.5 Fake PDF pretending to be jpeg image" + b"\x00" * 500
+    with TestClient(create_app(settings, llm=FakeLLM("{}"), store=store)) as c:
+        r5 = post(c, fake_data, name="fake.jpg", ctype="image/jpeg")
+        assert r5.status_code == 400
+        assert r5.json()["errorCode"] == "IMAGE_INVALID"

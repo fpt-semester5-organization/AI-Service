@@ -8,7 +8,9 @@ class DetectedIngredient(CamelModel):
     name: str
     confidence: float
     freshness_status: Literal["FRESH", "NON-FRESH"]
-    is_animal_product: bool
+    food_group: str | None = None
+    is_animal_product: bool = False
+    is_red_meat: bool = False
 
 
 class DetectIngredientsResponse(CamelModel):

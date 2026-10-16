@@ -72,20 +72,24 @@ class GeminiClient:
         self._client: genai.Client | None = None
 
     def configured(self) -> bool:
-        return bool(self._s.google_cloud_project) if self._s.google_genai_use_vertexai else True
+        if self._s.google_genai_use_vertexai:
+            return bool(self._s.google_cloud_project)
+        return bool(self._s.gemini_api_key or os.environ.get("GEMINI_API_KEY"))
 
     def _get(self) -> genai.Client:
         if self._client is None:
             if not self.configured():
-                raise gemini_error("Chưa cấu hình GOOGLE_CLOUD_PROJECT cho Vertex AI.")
+                raise gemini_error("Chưa cấu hình GOOGLE_CLOUD_PROJECT cho Vertex AI hoặc GEMINI_API_KEY.")
             cred = self._s.google_application_credentials
-            if cred:
+            if cred and self._s.google_genai_use_vertexai:
                 # Thư viện xác thực của Google chỉ đọc biến môi trường thật, không đọc .env.
                 os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", str(Path(cred).expanduser().resolve()))
+            api_key = self._s.gemini_api_key or os.environ.get("GEMINI_API_KEY") or None
             self._client = genai.Client(
                 vertexai=self._s.google_genai_use_vertexai,
-                project=self._s.google_cloud_project or None,
-                location=self._s.google_cloud_location,
+                project=self._s.google_cloud_project or None if self._s.google_genai_use_vertexai else None,
+                location=self._s.google_cloud_location if self._s.google_genai_use_vertexai else None,
+                api_key=api_key if not self._s.google_genai_use_vertexai else None,
                 http_options=types.HttpOptions(timeout=int(self._s.gemini_timeout_seconds * 1000)),
             )
         return self._client
