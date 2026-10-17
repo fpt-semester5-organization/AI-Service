@@ -40,3 +40,27 @@ def check_question(question: str) -> str | None:
         if rx.search(norm):
             return name
     return None
+
+
+_GREETING_TOKENS = {
+    "hi", "hello", "hey", "alo", "chao", "xin chao", "chao ban", "chao bot",
+    "chao em", "chao anh", "chao chi", "chao tro ly", "good morning",
+    "good afternoon", "good evening", "hi ban", "hello ban", "bonjour",
+    "chao ad", "admin", "chao admin", "hai", "helo",
+}
+
+
+def is_greeting(question: str) -> bool:
+    """Kiểm tra câu hỏi có phải thuần túy lời chào hỏi/mở đầu hội thoại hay không."""
+    norm = normalize(question).strip()
+    norm = re.sub(r"^[^\w\s]+|[^\w\s]+$", "", norm).strip()
+    if norm in _GREETING_TOKENS:
+        return True
+    words = norm.split()
+    if len(words) <= 3 and words:
+        if words[0] in {"hi", "hello", "hey", "chao", "alo", "xin"} or norm.startswith(("xin chao", "chao ")):
+            if not any(w in words for w in ("an", "chay", "dam", "calo", "mon", "nau", "thit", "ca", "trung", "sua")):
+                return True
+    return False
+
+

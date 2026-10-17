@@ -6,7 +6,7 @@ from app.core.errors import unsafe_content
 from app.core.gemini_client import LLMClient, parse_json_object
 from app.schemas.chat import Audit, ChatAnswerRequest, ChatAnswerResponse, ChatSource, Usage
 from app.services.chat.prompt import NO_CONTEXT_PHRASE, RESPONSE_SCHEMA, build_prompt
-from app.services.chat.safety import check_question
+from app.services.chat.safety import check_question, is_greeting
 from app.services.rag.retriever import Retriever
 from app.services.rag.types import Hit
 
@@ -37,9 +37,10 @@ class ChatAnswerer:
             log.info("Câu hỏi bị chặn: %s", violation)
             raise unsafe_content()
 
-        hits = await self._retriever.search(req.question)  # Qdrant lỗi/quá 3 giây → 503, không bỏ qua RAG
+        is_greet = is_greeting(req.question)
+        hits = [] if is_greet else await self._retriever.search(req.question)  # Qdrant lỗi/quá 3 giây → 503, không bỏ qua RAG
         prompt = build_prompt(req.question, req.history, req.profile, hits, req.candidate_recipes,
-                              self._s.chat_history_turns)
+                              self._s.chat_history_turns, is_greeting_turn=is_greet)
         gen = await self._llm.generate(
             prompt.system, prompt.messages, temperature=self._s.chat_temperature,
             max_output_tokens=self._s.chat_max_output_tokens, json_schema=RESPONSE_SCHEMA)
@@ -51,9 +52,10 @@ class ChatAnswerer:
         else:
             answer, raw_ids = gen.text.strip(), []
 
-        if not hits and NO_CONTEXT_PHRASE.lower() not in answer.lower():
+        if not hits and not is_greet and NO_CONTEXT_PHRASE.lower() not in answer.lower():
             # AIQ-2: không có đoạn nào đạt ngưỡng thì luôn nói rõ "không có trong kho"; không phó mặc cho mô hình.
             answer = f"{NO_CONTEXT_PHRASE}. {answer}"
+
 
         allowed = {r.recipe_id for r in req.candidate_recipes}
         recommended: list[int] = []
