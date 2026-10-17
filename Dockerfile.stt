@@ -1,0 +1,21 @@
+# stt-service (Cloud Run, D119): Whisper + ffmpeg + Gemini (Vertex). Chỉ phục vụ /health và /stt/*.
+# Build:  docker build -f Dockerfile.stt -t veggielife-stt .   (đổi model: --build-arg WHISPER_MODEL=medium)
+# CI không cần tải model:  --build-arg PRELOAD_MODEL=0
+FROM python:3.11-slim
+ARG WHISPER_MODEL=small
+ARG PRELOAD_MODEL=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    WHISPER_MODEL=${WHISPER_MODEL} WHISPER_COMPUTE_TYPE=int8 WHISPER_DEVICE=cpu \
+    HF_HOME=/opt/hf
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements.txt requirements-stt.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-stt.txt
+# Tải trước trọng số vào image để lần khởi động nguội trên Cloud Run không phải tải từ Hugging Face.
+RUN if [ "$PRELOAD_MODEL" = "1" ]; then python -c "import os; from faster_whisper import WhisperModel; WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8')"; fi
+COPY app ./app
+RUN useradd --create-home appuser && chown -R appuser /app /opt/hf
+USER appuser
+EXPOSE 8080
+CMD ["sh", "-c", "uvicorn app.stt_main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1"]
