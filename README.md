@@ -157,6 +157,46 @@ pytest -q          # test tích hợp cần Qdrant; đặt QDRANT_TEST_URL=http:
 
 Test mặc định dùng Gemini giả, không tốn credit và không cần khóa. Test gọi Vertex thật (đánh dấu `live`) chỉ chạy tay hoặc khi merge `develop`.
 
+### 7.1 Cài đặt và kiểm thử Dịch vụ STT (Whisper + Gemini)
+
+**1. Cài đặt FFmpeg đa nền tảng:**
+- **macOS:**
+  ```bash
+  brew install ffmpeg
+  ```
+- **Ubuntu / Debian Linux:**
+  ```bash
+  sudo apt-get update && sudo apt-get install -y ffmpeg
+  ```
+- **Windows:**
+  ```powershell
+  winget install Gyan.FFmpeg
+  # hoặc cài qua Chocolatey: choco install ffmpeg
+  ```
+
+**2. Cài đặt thư viện Python bổ trợ STT:**
+```bash
+pip install -r requirements-stt.txt
+# hoặc dùng uv: uv pip install -r requirements-stt.txt
+```
+
+**3. Chạy toàn bộ 66 ca kiểm thử đơn vị STT (không cần GPU, không tốn credit):**
+```bash
+pytest tests/unit/test_stt_*.py -v
+```
+
+**4. Khởi chạy dịch vụ STT độc lập (Cloud Run app):**
+```bash
+uvicorn app.stt_main:app --host 0.0.0.0 --port 8080 --reload
+```
+- Giao diện Swagger UI: [http://localhost:8080/docs](http://localhost:8080/docs)
+- Xác thực: bấm nút **Authorize** và nhập `INTERNAL_API_KEY` (mặc định: `veggielife-secret-internal-key-2026`).
+
+**5. Đo đạc hiệu năng và trích xuất công thức với video mẫu thật:**
+```bash
+python -m scripts.check_stt <đường_dẫn_video.mp4> --models small --recipe
+```
+
 ---
 
 ## 8. Chuyển code từ prototype (chỉ phần STT)
