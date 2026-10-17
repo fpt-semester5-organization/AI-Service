@@ -1,0 +1,8 @@
+# Build image stt-service bằng Cloud Build (dùng bởi scripts/deploy_stt.sh).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, Dockerfile.stt, --build-arg, "WHISPER_MODEL=${_MODEL}", -t, "${_IMAGE}", .]
+images: ["${_IMAGE}"]
+substitutions:
+  _MODEL: small
+  _IMAGE: ""
