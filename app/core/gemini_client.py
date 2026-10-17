@@ -62,7 +62,12 @@ def _retryable(exc: Exception) -> bool:
     if isinstance(exc, (httpx.TimeoutException, httpx.TransportError, asyncio.TimeoutError)):
         return True
     if isinstance(exc, genai_errors.APIError):
-        return exc.code in (408, 429) or (exc.code or 0) >= 500
+        if exc.code == 429:
+            msg = (str(getattr(exc, "message", "")) or str(exc)).lower()
+            if "per day" in msg or "perday" in msg or "quota exceeded" in msg or "retry in" in msg:
+                return False
+            return True
+        return exc.code == 408 or (exc.code or 0) >= 500
     return False
 
 
@@ -103,7 +108,7 @@ class GeminiClient:
             except Exception as exc:  # noqa: BLE001 — ánh xạ về lỗi của hợp đồng
                 last = exc
                 if i < attempts - 1 and _retryable(exc):
-                    await asyncio.sleep(0.5 * (2 ** i))
+                    await asyncio.sleep(1.0 * (2 ** i))
                     continue
                 break
         log.warning("Gemini lỗi sau %s lần: %r", attempts, last)

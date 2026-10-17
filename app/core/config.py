@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     # Hoặc dùng API key Google AI Studio trực tiếp (khi google_genai_use_vertexai = False)
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
-    gemini_timeout_seconds: float = 10.0
+    gemini_model: str = "gemini-3.8-flash"
+    gemini_timeout_seconds: float = 20.0
     gemini_max_retries: int = 2
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768

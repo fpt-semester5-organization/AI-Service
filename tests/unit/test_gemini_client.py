@@ -53,10 +53,10 @@ async def test_generate_builds_expected_request_and_reads_usage():
     g = await c.generate("SYS", [Message("user", "hi")], temperature=0.3, max_output_tokens=256, json_schema=RESPONSE_SCHEMA)
     kw = m.calls[0][1]
     cfg: types.GenerateContentConfig = kw["config"]
-    assert kw["model"] == "gemini-2.5-flash" and cfg.system_instruction == "SYS"
+    assert kw["model"] == "gemini-3.8-flash" and cfg.system_instruction == "SYS"
     assert cfg.response_mime_type == "application/json" and cfg.temperature == 0.3 and cfg.max_output_tokens == 256
     assert kw["contents"][0].role == "user" and kw["contents"][0].parts[0].text == "hi"
-    assert (g.prompt_tokens, g.completion_tokens, g.model, g.temperature) == (11, 7, "gemini-2.5-flash", 0.3)
+    assert (g.prompt_tokens, g.completion_tokens, g.model, g.temperature) == (11, 7, "gemini-3.8-flash", 0.3)
 
 
 async def test_retries_transient_errors_then_succeeds():
