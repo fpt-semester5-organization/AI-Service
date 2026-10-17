@@ -40,16 +40,36 @@ def ai_timeout(message: str = "Quá thời gian chờ AI.") -> AiServiceError:
     return AiServiceError("AI_TIMEOUT", message, 504)
 
 
+def media_invalid(message: str) -> AiServiceError:
+    return AiServiceError("MEDIA_INVALID", message, 400)
+
+
 def image_invalid(message: str) -> AiServiceError:
     return AiServiceError("IMAGE_INVALID", message, 400)
+
+
+def duration_invalid(message: str) -> AiServiceError:
+    return AiServiceError("DURATION_INVALID", message, 400)
 
 
 def file_too_large(message: str) -> AiServiceError:
     return AiServiceError("FILE_TOO_LARGE", message, 413)
 
 
-def media_download_failed(message: str = "Không tải được ảnh từ imageUrls.") -> AiServiceError:
+def no_speech() -> AiServiceError:
+    return AiServiceError("NO_SPEECH", "Không nhận ra lời thoại trong video.", 422)
+
+
+def media_download_failed(message: str = "Không tải được tệp đa phương tiện từ URL.") -> AiServiceError:
     return AiServiceError("MEDIA_DOWNLOAD_FAILED", message, 502)
+
+
+def not_a_recipe() -> AiServiceError:
+    return AiServiceError("NOT_A_RECIPE", "Lời thoại trong video không phải công thức nấu ăn.", 422)
+
+
+def stt_error(message: str = "Whisper hoặc ffmpeg xử lý lỗi.") -> AiServiceError:
+    return AiServiceError("STT_ERROR", message, 502)
 
 
 def register_handlers(app: FastAPI) -> None:
