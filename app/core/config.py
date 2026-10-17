@@ -36,6 +36,24 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 50
     knowledge_dir: str = "knowledge/nutrition"
 
+    # STT (stt-service, D119): Whisper + ffmpeg, rồi Gemini trích công thức
+    whisper_model: str = "small"
+    whisper_compute_type: str = "int8"
+    whisper_device: str = "cpu"
+    whisper_language: str = "vi"           # để trống = tự nhận diện
+    whisper_cpu_threads: int = 0           # 0 = để thư viện tự chọn (Cloud Run: đặt bằng số vCPU)
+    whisper_beam_size: int = 5             # 1 = tham lam, nhanh hơn ~2x, kém chính xác hơn
+    stt_min_seconds: float = 10.0          # BR-AI-STT-01
+    stt_max_seconds: float = 300.0
+    stt_min_sample_rate: int = 16000
+    stt_max_upload_mb: int = 100           # BR-AI-STT-03
+    stt_allowed_video_hosts: str = "res.cloudinary.com"   # phân tách bằng dấu phẩy (chống SSRF)
+    stt_download_timeout_seconds: float = 60.0
+    stt_ffmpeg_timeout_seconds: float = 120.0
+    stt_concurrency: int = 1               # SCA-2: 1 tác vụ STT mỗi instance
+    stt_recipe_temperature: float = 0.2    # B.4: tác vụ có cấu trúc ≤ 0,4
+    stt_recipe_max_output_tokens: int = 2048
+
     # Giới hạn tải lên cho ảnh (BR-AI-CV-01): ≤ 10 MB, ≥ 640×480
     max_upload_mb: int = 10
     image_min_width: int = 640
@@ -62,6 +80,10 @@ class Settings(BaseSettings):
     @property
     def moderation_allowed_image_hosts(self) -> list[str]:
         return [h.strip().lower() for h in self.moderation_image_hosts.split(",") if h.strip()]
+
+    @property
+    def stt_allowed_hosts(self) -> list[str]:
+        return [h.strip().lower() for h in self.stt_allowed_video_hosts.split(",") if h.strip()]
 
 
 @lru_cache
