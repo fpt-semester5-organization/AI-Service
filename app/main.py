@@ -6,10 +6,11 @@ from dataclasses import dataclass
 import httpx
 from fastapi import FastAPI
 
-from app.api.routers import chat, health, moderation, rag, vision
+from app.api.routers import barcode, chat, health, moderation, rag, vision
 from app.core.config import Settings, get_settings
 from app.core.errors import AiServiceError, register_handlers
 from app.core.gemini_client import GeminiClient, LLMClient
+from app.services.barcode.classifier import BarcodeClassifier
 from app.services.chat.answerer import ChatAnswerer
 from app.services.moderation.checker import ContentModerator
 from app.services.rag.chunker import Chunker
@@ -31,6 +32,7 @@ class Container:
     answerer: ChatAnswerer
     moderator: ContentModerator
     ingredient_detector: IngredientDetector
+    barcode_classifier: BarcodeClassifier
 
 
 def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None,
@@ -44,7 +46,8 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
     retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score)
     return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever),
                      ContentModerator(settings, llm, http_client),
-                     IngredientDetector(settings, llm))
+                     IngredientDetector(settings, llm),
+                     BarcodeClassifier(settings, llm))
 
 
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
@@ -72,6 +75,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
     app.include_router(chat.router)
     app.include_router(moderation.router)
     app.include_router(vision.router)
+    app.include_router(barcode.router)
     return app
 
 
