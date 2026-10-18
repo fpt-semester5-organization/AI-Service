@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Hoặc dùng API key Google AI Studio trực tiếp (khi google_genai_use_vertexai = False)
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
-    gemini_timeout_seconds: float = 10.0
+    gemini_timeout_seconds: float = 25.0
     gemini_max_retries: int = 2
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Vision (FN-VIS-01)
     vision_temperature: float = 0.2
-    vision_max_output_tokens: int = 1024
+    vision_max_output_tokens: int = 4096
 
     # Chat
     chat_history_turns: int = 6

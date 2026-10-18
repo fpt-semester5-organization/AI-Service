@@ -25,6 +25,8 @@ QUY TẮC BẤT BIẾN:
 7. foodGroup: nhóm thực phẩm tương ứng (ví dụ: "Rau củ", "Trái cây", "Nấm", "Đậu hạt", "Gia vị", "Thịt đỏ", "Gia cầm", "Thủy hải sản", "Trứng", "Sữa & Chế phẩm", "Khác").
 8. isAnimalProduct: true nếu nguyên liệu có nguồn gốc động vật (thịt, gia cầm, cá, hải sản, trứng, sữa và chế phẩm từ sữa, mật ong), ngược lại false.
 9. isRedMeat: true nếu là thịt đỏ (thịt bò, thịt lợn/heo, thịt cừu, thịt dê,...); ngược lại false.
+10. box2d: mảng 4 số nguyên [ymin, xmin, ymax, xmax] từ 0 đến 1000 định vị hộp bao quanh nguyên liệu trong ảnh (ymin: cạnh trên, xmin: cạnh trái, ymax: cạnh dưới, xmax: cạnh phải). Bắt buộc phải có nếu nhìn thấy rõ nguyên liệu.
+11. Giới hạn số lượng: Nhận diện tối đa 30 nguyên liệu thực phẩm chính nhìn rõ nhất trong ảnh.
 ĐỊNH DẠNG ĐẦU RA: JSON đúng schema."""
 
 USER_TEXT = "Hãy nhận diện nguyên liệu trong ảnh đính kèm."
@@ -41,6 +43,11 @@ RESPONSE_SCHEMA: dict[str, Any] = {
                 "foodGroup": {"type": "STRING"},
                 "isAnimalProduct": {"type": "BOOLEAN"},
                 "isRedMeat": {"type": "BOOLEAN"},
+                "box2d": {
+                    "type": "ARRAY",
+                    "items": {"type": "INTEGER"},
+                    "description": "[ymin, xmin, ymax, xmax] normalized to 0-1000",
+                },
             },
             "required": ["name", "confidence", "freshnessStatus", "isAnimalProduct", "isRedMeat"]}},
     },
@@ -88,6 +95,19 @@ def normalize(data: dict[str, Any]) -> list[DetectedIngredient]:
         else:
             food_group = food_group.strip()[:50]
 
+        # Xử lý toạ độ box2d [ymin, xmin, ymax, xmax] (chuẩn hóa 0..1000)
+        raw_box = item.get("box2d") or item.get("box_2d") or item.get("box2D")
+        box2d: list[int] | None = None
+        if isinstance(raw_box, (list, tuple)) and len(raw_box) == 4:
+            try:
+                coords = [int(round(float(v))) for v in raw_box]
+                ymin, xmin, ymax, xmax = coords
+                # Toạ độ hợp lệ: nằm trong 0..1000 và ymin < ymax, xmin < xmax
+                if 0 <= ymin < ymax <= 1000 and 0 <= xmin < xmax <= 1000:
+                    box2d = [ymin, xmin, ymax, xmax]
+            except (ValueError, TypeError):
+                box2d = None
+
         name = name.strip()[:100]
         det = DetectedIngredient(
             name=name,
@@ -96,6 +116,7 @@ def normalize(data: dict[str, Any]) -> list[DetectedIngredient]:
             food_group=food_group,
             is_animal_product=animal or red_meat,
             is_red_meat=red_meat,
+            box2d=box2d,
         )
         key = name.casefold()
         if key not in best or det.confidence > best[key].confidence:
@@ -115,6 +136,7 @@ class IngredientDetector:
                                        max_output_tokens=self._s.vision_max_output_tokens, json_schema=RESPONSE_SCHEMA)
         parsed = parse_json_object(gen.text)
         if parsed is None:
+            log.error("Gemini vision JSON parse failed. completion_tokens=%s, raw text: %r", gen.completion_tokens, gen.text[:500])
             raise gemini_error("Gemini không trả JSON nhận diện hợp lệ.")
         prompt = (f"[SYSTEM]\n{SYSTEM_INSTRUCTION}\n\n[USER]\n{USER_TEXT}\n"
                   f"[IMAGE {info.mime_type} {info.width}x{info.height} {len(data)} bytes]")

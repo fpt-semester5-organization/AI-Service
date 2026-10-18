@@ -42,6 +42,7 @@ def test_detect_ok(settings, store):
         "foodGroup": "Trứng",
         "isAnimalProduct": True,
         "isRedMeat": False,
+        "box2d": None,
     }
     assert body["items"][2] == {
         "name": "Thịt bò",
@@ -50,6 +51,7 @@ def test_detect_ok(settings, store):
         "foodGroup": "Thịt đỏ",
         "isAnimalProduct": True,
         "isRedMeat": True,
+        "box2d": None,
     }
     assert body["usage"]["model"] == "fake-model"
     # ảnh thật sự được chuyển cho Gemini, MIME lấy từ chữ ký tệp; nhiệt độ thấp, có JSON schema
@@ -219,3 +221,71 @@ def test_five_sample_scenarios(settings, store):
         r5 = post(c, fake_data, name="fake.jpg", ctype="image/jpeg")
         assert r5.status_code == 400
         assert r5.json()["errorCode"] == "IMAGE_INVALID"
+
+
+def test_detect_with_bounding_box(settings, store):
+    """Kiểm tra Gemini trả về toạ độ box2d và endpoint API bảo toàn toạ độ trong JSON response."""
+    data_with_box = {
+        "items": [
+            {
+                "name": "Nấm rơm tươi",
+                "confidence": 0.95,
+                "freshnessStatus": "FRESH",
+                "foodGroup": "Nấm",
+                "isAnimalProduct": False,
+                "isRedMeat": False,
+                "box2d": [420, 115, 680, 395],
+            },
+            {
+                "name": "Rau muống héo",
+                "confidence": 0.82,
+                "freshnessStatus": "NON-FRESH",
+                "foodGroup": "Rau củ",
+                "isAnimalProduct": False,
+                "isRedMeat": False,
+                "box_2d": [180, 520, 490, 840],  # Hỗ trợ alias box_2d
+            },
+        ]
+    }
+    llm = FakeLLM(json.dumps(data_with_box, ensure_ascii=False))
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = post(c, jpeg(1280, 720))
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert len(items) == 2
+    assert items[0]["name"] == "Nấm rơm tươi"
+    assert items[0]["box2d"] == [420, 115, 680, 395]
+    assert items[1]["name"] == "Rau muống héo"
+    assert items[1]["box2d"] == [180, 520, 490, 840]
+
+
+def test_normalize_box2d_coordinate_validation():
+    """Kiểm tra hàm normalize() xử lý các trường hợp toạ độ hợp lệ và bất thường."""
+    # Toạ độ hợp lệ chuẩn hóa 0..1000
+    valid_data = {
+        "items": [
+            {"name": "Cà chua", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [100, 200, 300, 400]},
+            {"name": "Dưa chuột", "confidence": 0.85, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box_2d": [0, 0, 1000, 1000]},
+            {"name": "Cà rốt", "confidence": 0.8, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [12.4, 34.6, 120.1, 250.8]},
+        ]
+    }
+    res = normalize(valid_data)
+    assert res[0].box2d == [100, 200, 300, 400]
+    assert res[1].box2d == [0, 0, 1000, 1000]
+    assert res[2].box2d == [12, 35, 120, 251]
+
+    # Toạ độ bất thường -> được làm sạch về None
+    invalid_data = {
+        "items": [
+            {"name": "A", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [300, 200, 100, 400]},  # ymin > ymax
+            {"name": "B", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [100, 400, 300, 200]},  # xmin > xmax
+            {"name": "C", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [-10, 50, 300, 400]},   # ymin < 0
+            {"name": "D", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [100, 50, 1050, 400]},  # ymax > 1000
+            {"name": "E", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": [100, 200, 300]},        # Thiếu toạ độ
+            {"name": "F", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False, "box2d": "invalid"},               # Sai kiểu dữ liệu
+        ]
+    }
+    res_inv = normalize(invalid_data)
+    for item in res_inv:
+        assert item.box2d is None
+
