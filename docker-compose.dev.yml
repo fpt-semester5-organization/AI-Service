@@ -20,5 +20,18 @@ services:
       - ${GOOGLE_CREDENTIALS_FILE:-./secrets/vertex-sa.json}:/run/secrets/vertex-sa.json:ro
     depends_on: { qdrant: { condition: service_healthy } }
     ports: ["8081:8080"]      # chỉ mở cho Backend; không công khai ra Internet
+  stt-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.stt
+    env_file: .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/vertex-sa.json
+      WHISPER_MODEL: small
+      WHISPER_COMPUTE_TYPE: int8
+      WHISPER_DEVICE: cpu
+    volumes:
+      - ${GOOGLE_CREDENTIALS_FILE:-./secrets/veggielife-vertex-sa.json}:/run/secrets/vertex-sa.json:ro
+    ports: ["8082:8080"]      # cổng STT microservice phục vụ Backend
 volumes:
   qdrantdata: {}
