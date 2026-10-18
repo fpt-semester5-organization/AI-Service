@@ -65,6 +65,7 @@ Nguồn chuẩn là **Phụ lục B.3 của Sprint Plan** (`plan/16. Context imp
 | POST | `/meal/generate` | Thực đơn tuần (FN-MEAL-01) | `slots` (21 ô `dayOfWeek`, `mealType`, `recipeId`), `usage`, `audit` |
 | POST | `/moderation/check` | Kiểm duyệt (FN-POST-03/04/07) | `violationScore`, `violationType`, `reasons`, `usage`, `audit` |
 | POST | `/vision/detect-ingredients` | Ảnh tủ lạnh (FN-VIS-01) | `items[]` (`name`, `confidence`, `freshnessStatus`, `isAnimalProduct`) |
+| POST | `/barcode/classify` | Thẩm định mã vạch (FN-BAR-01) | `veganVerdict`, `verdictText`, `detectedAdditives`, `allergens`, `confidence`, `usage`, `audit` |
 | POST | `/rag/upsert` | Nạp một nguồn (FN-CHAT-07) | `chunks`, `embeddingTokens` |
 | POST | `/rag/delete` | Xóa mọi đoạn của một nguồn | `deleted` |
 | POST | `/rag/reindex/nutrition` | Nạp lại `knowledge/nutrition/*.md` | `files`, `chunks`, `embeddingTokens` |
