@@ -28,6 +28,18 @@ def test_empty_server_key_rejects_everything(settings, llm, store):
         assert c.get("/health", headers={"X-Internal-Api-Key": ""}).status_code == 401
 
 
+def test_multiple_internal_keys_accepted(settings, llm, store):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    settings.internal_api_key = "key-alpha, key-beta"
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        assert c.get("/health", headers={"X-Internal-Api-Key": "key-alpha"}).status_code == 200
+        assert c.get("/health", headers={"X-Internal-Api-Key": "key-beta"}).status_code == 200
+        assert c.get("/health", headers={"X-Internal-Api-Key": "key-gamma"}).status_code == 401
+
+
+
 def test_upsert_status_delete_roundtrip(client):
     r = client.post("/rag/upsert", json=UP, headers=HEADERS)
     assert r.status_code == 200 and r.json() == {"chunks": 1, "embeddingTokens": r.json()["embeddingTokens"]}

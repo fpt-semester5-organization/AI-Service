@@ -14,5 +14,7 @@ async def require_internal_key(request: Request, x_internal_api_key: str | None 
     expected = request.app.state.settings.internal_api_key
     if not expected or not x_internal_api_key:
         raise unauthorized()
-    if not hmac.compare_digest(x_internal_api_key.encode("utf-8"), expected.encode("utf-8")):
+    allowed_keys = [k.strip() for k in expected.split(",") if k.strip()]
+    if not any(hmac.compare_digest(x_internal_api_key.encode("utf-8"), k.encode("utf-8")) for k in allowed_keys):
         raise unauthorized()
+
