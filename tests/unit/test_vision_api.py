@@ -34,6 +34,7 @@ def test_detect_ok(settings, store):
         r = post(c, jpeg(1280, 720))
     assert r.status_code == 200
     body = r.json()
+    assert body["isValidFridge"] is True
     assert [i["name"] for i in body["items"]] == ["Cà chua", "Trứng gà", "Thịt bò", "Rau muống"]
     assert body["items"][1] == {
         "name": "Trứng gà",
@@ -42,6 +43,9 @@ def test_detect_ok(settings, store):
         "foodGroup": "Trứng",
         "isAnimalProduct": True,
         "isRedMeat": False,
+        "quantity": None,
+        "amount": None,
+        "unit": None,
         "box2d": None,
     }
     assert body["items"][2] == {
@@ -51,6 +55,9 @@ def test_detect_ok(settings, store):
         "foodGroup": "Thịt đỏ",
         "isAnimalProduct": True,
         "isRedMeat": True,
+        "quantity": None,
+        "amount": None,
+        "unit": None,
         "box2d": None,
     }
     assert body["usage"]["model"] == "fake-model"
@@ -60,7 +67,65 @@ def test_detect_ok(settings, store):
     assert msgs[0].images[0].data == jpeg(1280, 720)
     kw = llm.generate_kwargs[0]
     assert kw["temperature"] <= 0.4 and kw["json_schema"] is RESPONSE_SCHEMA
-    assert "DỮ LIỆU" in system
+    assert "chuyên gia thị giác máy tính" in system
+
+
+def test_reject_invalid_fridge_image(settings, store):
+    """Khi ảnh không phải tủ lạnh/thực phẩm, AI trả isValidFridge=false kèm rejectionReason."""
+    not_a_fridge = {
+        "isValidFridge": False,
+        "rejectionReason": "Hình ảnh không phải là tủ lạnh có chứa nguyên liệu thực phẩm. Vui lòng chụp hoặc chọn lại ảnh khác.",
+        "items": [],
+    }
+    llm = FakeLLM(json.dumps(not_a_fridge, ensure_ascii=False))
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = post(c, jpeg(1280, 720))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["isValidFridge"] is False
+    assert "chụp hoặc chọn lại ảnh khác" in body["rejectionReason"]
+    assert body["items"] == []
+
+
+def test_quantity_amount_unit_inference(settings, store):
+    """Kiểm tra nhận diện và suy luận định lượng: nửa trái bí đỏ, 3 ký thịt heo."""
+    sample = {
+        "isValidFridge": True,
+        "items": [
+            {
+                "name": "Bí đỏ",
+                "quantity": "nửa trái",
+                "confidence": 0.95,
+                "freshnessStatus": "FRESH",
+                "foodGroup": "Rau củ",
+                "isAnimalProduct": False,
+                "isRedMeat": False,
+            },
+            {
+                "name": "Thịt heo",
+                "quantity": "3 ký",
+                "confidence": 0.92,
+                "freshnessStatus": "FRESH",
+                "foodGroup": "Thịt đỏ",
+                "isAnimalProduct": True,
+                "isRedMeat": True,
+            },
+        ],
+    }
+    llm = FakeLLM(json.dumps(sample, ensure_ascii=False))
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = post(c, jpeg(1280, 720))
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert items[0]["name"] == "Bí đỏ"
+    assert items[0]["quantity"] == "nửa trái"
+    assert items[0]["amount"] == 0.5
+    assert items[0]["unit"] == "trái"
+
+    assert items[1]["name"] == "Thịt heo"
+    assert items[1]["quantity"] == "3 ký"
+    assert items[1]["amount"] == 3.0
+    assert items[1]["unit"] == "kg"
 
 
 def test_detect_with_image_field_name(settings, store):

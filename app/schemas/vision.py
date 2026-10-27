@@ -13,6 +13,9 @@ class DetectedIngredient(CamelModel):
     food_group: str | None = None
     is_animal_product: bool = False
     is_red_meat: bool = False
+    quantity: str | None = None
+    amount: float | None = None
+    unit: str | None = None
     box2d: list[int] | None = Field(default=None, alias="box2d")
 
     @model_validator(mode="before")
@@ -31,6 +34,8 @@ class DetectedIngredient(CamelModel):
 
 
 class DetectIngredientsResponse(CamelModel):
+    is_valid_fridge: bool = True
+    rejection_reason: str | None = None
     items: list[DetectedIngredient]
     # B.3 chỉ liệt kê items; usage/audit là phần bổ sung để Backend ghi AIQuotaLogs/AuditLogs như các endpoint AI khác.
     usage: Usage
