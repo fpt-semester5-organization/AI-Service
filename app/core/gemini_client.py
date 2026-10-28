@@ -118,14 +118,18 @@ class GeminiClient:
         client = self._get()
         contents = [types.Content(role=m.role, parts=[types.Part(text=m.text), *(
             types.Part.from_bytes(data=i.data, mime_type=i.mime_type) for i in m.images)]) for m in messages]
-        cfg = types.GenerateContentConfig(
-            system_instruction=system,
-            temperature=temperature,
-            max_output_tokens=max_output_tokens,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
-            response_mime_type="application/json" if json_schema else None,
-            response_schema=json_schema,
-        )
+        cfg_kwargs: dict[str, Any] = {
+            "system_instruction": system,
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens,
+            "response_mime_type": "application/json" if json_schema else None,
+            "response_schema": json_schema,
+        }
+        model_name = self._s.gemini_model.lower()
+        if any(tag in model_name for tag in ("2.5", "3.1", "3.5", "3.6", "3.7", "3.8", "thinking")):
+            cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+
+        cfg = types.GenerateContentConfig(**cfg_kwargs)
         started = time.perf_counter()
         resp = await self._call(lambda: client.aio.models.generate_content(
             model=self._s.gemini_model, contents=contents, config=cfg))
