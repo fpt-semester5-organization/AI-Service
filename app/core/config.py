@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     image_min_width: int = 640
     image_min_height: int = 480
 
+    # Thực đơn tuần (FN-MEAL-01, B.4): tác vụ có cấu trúc, temperature ≤ 0,4; timeout 4s
+    meal_temperature: float = 0.3
+    meal_max_output_tokens: int = 2048
+    meal_timeout_seconds: float = 4.0
+
     # Kiểm duyệt (FN-POST-03/04/07)
     moderation_temperature: float = 0.1
     moderation_max_output_tokens: int = 512
