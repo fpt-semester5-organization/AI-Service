@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     # Hoặc dùng API key Google AI Studio trực tiếp (khi google_genai_use_vertexai = False)
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.5-flash"
     gemini_timeout_seconds: float = 25.0
     gemini_max_retries: int = 2
     embedding_model: str = "gemini-embedding-001"
@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     stt_max_seconds: float = 300.0
     stt_min_sample_rate: int = 16000
     stt_max_upload_mb: int = 100           # BR-AI-STT-03
-    stt_allowed_video_hosts: str = "res.cloudinary.com"   # phân tách bằng dấu phẩy (chống SSRF)
+    stt_allowed_video_hosts: str = "res.cloudinary.com,cloudinary.com,commondatastorage.googleapis.com,localhost,127.0.0.1"   # phân tách bằng dấu phẩy (chống SSRF)
     stt_download_timeout_seconds: float = 60.0
     stt_ffmpeg_timeout_seconds: float = 120.0
     stt_concurrency: int = 1               # SCA-2: 1 tác vụ STT mỗi instance

@@ -2,6 +2,7 @@
 import asyncio
 import json
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,18 +16,24 @@ class MediaInfo:
     sample_rate: int
 
 
+def _sync_run(cmd: list[str], timeout: float) -> tuple[int, bytes, bytes]:
+    try:
+        res = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+        return res.returncode, res.stdout, res.stderr
+    except subprocess.TimeoutExpired as exc:
+        raise stt_error(f"{cmd[0]} quá thời gian.") from exc
+
+
 async def _run(cmd: list[str], timeout: float) -> tuple[int, bytes, bytes]:
     if shutil.which(cmd[0]) is None:
         raise stt_error(f"Thiếu {cmd[0]} trong môi trường chạy.")
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError as exc:
-        proc.kill()
-        await proc.wait()
-        raise stt_error(f"{cmd[0]} quá thời gian.") from exc
-    return proc.returncode or 0, out, err
+    return await asyncio.to_thread(_sync_run, cmd, timeout)
 
 
 async def probe(path: Path, settings: Settings) -> MediaInfo:
