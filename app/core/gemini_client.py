@@ -103,7 +103,11 @@ class GeminiClient:
             except Exception as exc:  # noqa: BLE001 — ánh xạ về lỗi của hợp đồng
                 last = exc
                 if i < attempts - 1 and _retryable(exc):
-                    await asyncio.sleep(0.5 * (2 ** i))
+                    delay = 0.5 * (2 ** i)
+                    if isinstance(exc, genai_errors.APIError) and exc.code == 429:
+                        delay = max(delay, 4.0 + 2.0 * i)
+                    log.warning("Gemini lỗi lần %s (mã %s), thử lại sau %.1fs: %r", i + 1, getattr(exc, "code", None), delay, exc)
+                    await asyncio.sleep(delay)
                     continue
                 break
         log.warning("Gemini lỗi sau %s lần: %r", attempts, last)
@@ -126,7 +130,7 @@ class GeminiClient:
             "response_schema": json_schema,
         }
         model_name = self._s.gemini_model.lower()
-        if any(tag in model_name for tag in ("2.5", "3.1", "3.5", "3.6", "3.7", "3.8", "thinking")):
+        if any(tag in model_name for tag in ("2.5", "3.1", "3.5", "3.6", "3.7", "3.8", "flash", "thinking")):
             cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
 
         cfg = types.GenerateContentConfig(**cfg_kwargs)

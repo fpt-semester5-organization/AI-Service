@@ -6,7 +6,7 @@ from pydantic.alias_generators import to_camel
 
 
 class CamelModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
 
 
 class ChatTurn(CamelModel):
@@ -23,8 +23,15 @@ class ChatProfile(CamelModel):
 class CandidateRecipe(CamelModel):
     recipe_id: int
     title: str
-    cook_time_minutes: int = 0
-    calories_kcal: int | None = None
+    cook_time_minutes: int | float = 0
+    prep_time_minutes: int | float = 0
+    calories_kcal: float | int | None = None
+    favorite_count: int | None = 0
+    vote_count: int | None = 0
+    view_count: int | None = 0
+    difficulty_level: str | None = None
+    category_name: str | None = None
+    uses_fridge_item: bool = False
 
 
 class ChatAnswerRequest(CamelModel):

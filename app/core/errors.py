@@ -72,9 +72,15 @@ def stt_error(message: str = "Whisper hoặc ffmpeg xử lý lỗi.") -> AiServi
     return AiServiceError("STT_ERROR", message, 502)
 
 
+import logging
+
+log = logging.getLogger("veggielife.errors")
+
+
 def register_handlers(app: FastAPI) -> None:
     @app.exception_handler(AiServiceError)
     async def _ai_error(_: Request, exc: AiServiceError) -> JSONResponse:
+        log.error("AiServiceError [%s] %s: %s", exc.status_code, exc.error_code, exc.message)
         return JSONResponse(status_code=exc.status_code, content={"errorCode": exc.error_code, "message": exc.message})
 
     @app.exception_handler(RequestValidationError)

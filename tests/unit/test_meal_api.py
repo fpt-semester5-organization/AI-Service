@@ -157,6 +157,93 @@ def test_schema_is_valid_for_google_sdk():
         types.Schema.model_validate({**RESPONSE_SCHEMA, "requird": ["x"]})
 
 
+def test_generate_custom_days_uses_day_numbers_when_no_start_date(settings, store):
+    custom_days = ["DAY_1", "DAY_2"]
+    slots = [
+        {
+            "dayOfWeek": d,
+            "mealType": m,
+            "recipeId": IDS[(i * 3 + j) % len(IDS)],
+            "caloriesKcal": 420.5,
+            "cookTimeMinutes": 20,
+            "favoriteCount": 15,
+            "matchReason": "Món ăn thanh đạm",
+        }
+        for i, d in enumerate(custom_days)
+        for j, m in enumerate(MEALS)
+    ]
+    reply = json.dumps({"slots": slots})
+    body = {**REQ, "durationDays": 2}
+    r, llm = call(settings, store, reply, body=body)
+    assert r.status_code == 200
+    res = r.json()
+    assert len(res["slots"]) == 6
+    assert res["slots"][0]["dayOfWeek"] == "DAY_1"
+    assert res["slots"][3]["dayOfWeek"] == "DAY_2"
+    prompt_text = llm.generate_calls[0][1][0].text
+    assert "DAY_1" in prompt_text and "DAY_2" in prompt_text
+
+
+def test_generate_with_start_date_aligns_real_weekday(settings, store):
+    # 2026-11-04 là Thứ Tư (WED)
+    real_weekdays = ["WED", "THU", "FRI", "SAT", "SUN", "MON", "TUE"]
+    slots = [
+        {
+            "dayOfWeek": d,
+            "mealType": m,
+            "recipeId": IDS[(i * 3 + j) % len(IDS)],
+            "caloriesKcal": 450.0,
+            "cookTimeMinutes": 25,
+            "favoriteCount": 18,
+            "matchReason": f"Phù hợp cho {d}",
+        }
+        for i, d in enumerate(real_weekdays)
+        for j, m in enumerate(MEALS)
+    ]
+    reply = json.dumps({"slots": slots})
+    body = {**REQ, "durationDays": 7, "startDate": "2026-11-04"}
+    r, llm = call(settings, store, reply, body=body)
+    assert r.status_code == 200
+    res = r.json()
+    assert len(res["slots"]) == 21
+    # Ngày đầu tiên bắt đầu từ Thứ Tư (WED)
+    assert res["slots"][0]["dayOfWeek"] == "WED"
+    assert res["slots"][3]["dayOfWeek"] == "THU"
+    prompt_text = llm.generate_calls[0][1][0].text
+    assert "2026-11-04" in prompt_text
+    assert "Thứ Tư (04/11/2026) -> dayOfWeek=\"WED\"" in prompt_text
+
+
+def test_swap_by_note_ok(settings, store):
+    swap_reply = json.dumps({
+        "selectedRecipeId": 102,
+        "reason": "Món canh nấm thanh mát, không dầu mỡ theo đúng yêu cầu người dùng",
+        "caloriesKcal": 380.0,
+        "cookTimeMinutes": 15,
+        "favoriteCount": 24,
+    })
+    llm = FakeLLM(swap_reply)
+    body = {
+        "currentRecipeId": 100,
+        "swapNote": "Đổi sang món canh thanh đạm, không ăn cay",
+        "dietarySchoolCode": "VEGAN",
+        "mealType": "LUNCH",
+        "targetCalories": 400.0,
+        "excludedRecipeIds": [100, 101],
+        "candidateRecipes": RECIPES,
+    }
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = c.post("/meal/swap-by-note", json=body, headers=HEADERS)
+    assert r.status_code == 200
+    res = r.json()
+    assert res["success"] is True
+    assert res["selectedRecipeId"] == 102
+    assert "thanh mát" in res["reason"]
+    assert res["caloriesKcal"] == 380.0
+    assert res["cookTimeMinutes"] == 15
+    assert res["favoriteCount"] == 24
+
+
 def test_swap_by_note_success_with_llm(settings, store):
     candidates = [
         {"recipeId": 101, "title": "Súp bí đỏ", "caloriesKcal": 500, "ingredients": [{"ingredientName": "bí đỏ"}]},
@@ -197,3 +284,4 @@ def test_swap_by_note_fallback_selects_matching_ingredient(settings, store):
     assert data["success"] is True
     assert data["selectedRecipeId"] == 130
     assert "Đậu bắp luộc chấm chao ớt" in data["reason"]
+
