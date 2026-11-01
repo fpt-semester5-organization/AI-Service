@@ -5,7 +5,7 @@ from app.core.config import Settings
 from app.core.errors import unsafe_content
 from app.core.gemini_client import LLMClient, parse_json_object
 from app.schemas.chat import Audit, ChatAnswerRequest, ChatAnswerResponse, ChatSource, Usage
-from app.services.chat.prompt import NO_CONTEXT_PHRASE, RESPONSE_SCHEMA, build_prompt
+from app.services.chat.prompt import RESPONSE_SCHEMA, build_prompt
 from app.services.chat.safety import check_question, is_greeting
 from app.services.rag.retriever import Retriever
 from app.services.rag.types import Hit
@@ -51,11 +51,6 @@ class ChatAnswerer:
             raw_ids = parsed.get("recommendedRecipeIds") or []
         else:
             answer, raw_ids = gen.text.strip(), []
-
-        if not hits and not is_greet and NO_CONTEXT_PHRASE.lower() not in answer.lower():
-            # AIQ-2: không có đoạn nào đạt ngưỡng thì luôn nói rõ "không có trong kho"; không phó mặc cho mô hình.
-            answer = f"{NO_CONTEXT_PHRASE}. {answer}"
-
 
         allowed = {r.recipe_id for r in req.candidate_recipes}
         recommended: list[int] = []

@@ -155,3 +155,45 @@ def test_schema_is_valid_for_google_sdk():
     types.Schema.model_validate(RESPONSE_SCHEMA)
     with pytest.raises(ValidationError):
         types.Schema.model_validate({**RESPONSE_SCHEMA, "requird": ["x"]})
+
+
+def test_swap_by_note_success_with_llm(settings, store):
+    candidates = [
+        {"recipeId": 101, "title": "Súp bí đỏ", "caloriesKcal": 500, "ingredients": [{"ingredientName": "bí đỏ"}]},
+        {"recipeId": 102, "title": "Đậu bắp luộc chấm chao ớt", "caloriesKcal": 510, "ingredients": [{"ingredientName": "ớt đỏ"}, {"ingredientName": "đậu bắp"}]},
+    ]
+    req_body = {
+        "currentRecipeId": 99,
+        "swapNote": "tôi muốn ăn món có ớt",
+        "targetCalories": 500,
+        "candidateRecipes": candidates,
+    }
+    llm = FakeLLM(json.dumps({"selectedRecipeId": 102, "reason": "Món Đậu bắp luộc chấm chao ớt có vị ớt cay nồng đúng yêu cầu"}))
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = c.post("/meal/swap-by-note", json=req_body, headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["selectedRecipeId"] == 102
+    assert "ớt" in data["reason"]
+
+
+def test_swap_by_note_fallback_selects_matching_ingredient(settings, store):
+    candidates = [
+        {"recipeId": 101, "title": "Súp ngô ngọt", "caloriesKcal": 500, "ingredients": [{"ingredientName": "ngô ngọt"}]},
+        {"recipeId": 130, "title": "Đậu bắp luộc chấm chao ớt", "caloriesKcal": 505, "ingredients": [{"ingredientName": "chao ớt"}, {"ingredientName": "đậu bắp"}]},
+    ]
+    req_body = {
+        "currentRecipeId": 99,
+        "swapNote": "tôi muốn ăn món có ớt",
+        "targetCalories": 500,
+        "candidateRecipes": candidates,
+    }
+    llm = FakeLLM(fail=gemini_error())
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        r = c.post("/meal/swap-by-note", json=req_body, headers=HEADERS)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["selectedRecipeId"] == 130
+    assert "Đậu bắp luộc chấm chao ớt" in data["reason"]

@@ -156,8 +156,7 @@ def test_chat_plain_text_reply_is_tolerated(settings, store):
     from app.main import create_app
     with TestClient(create_app(settings, llm=FakeLLM("Trả lời không phải JSON."), store=store)) as c:
         r = c.post("/chat/answer", headers=HEADERS, json={"question": "đạm là gì"}).json()
-        assert r["answer"].endswith("Trả lời không phải JSON.") and r["recommendedRecipeIds"] == []
-        assert r["answer"].startswith("Nội dung này không có trong kho tri thức của VeggieLife")  # kho trống: luôn nói rõ
+        assert r["answer"] == "Trả lời không phải JSON." and r["recommendedRecipeIds"] == []
 
 
 def test_chat_validation(client):
