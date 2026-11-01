@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
     gemini_timeout_seconds: float = 25.0
-    gemini_max_retries: int = 2
+    gemini_max_retries: int = 3
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
     embedding_concurrency: int = 4
@@ -61,10 +61,10 @@ class Settings(BaseSettings):
     image_min_width: int = 640
     image_min_height: int = 480
 
-    # Thực đơn tuần (FN-MEAL-01, B.4): tác vụ có cấu trúc, temperature ≤ 0,4; timeout 4s
+    # Thực đơn tuần (FN-MEAL-01, B.4): tác vụ có cấu trúc, temperature ≤ 0,4; timeout 25s
     meal_temperature: float = 0.3
     meal_max_output_tokens: int = 2048
-    meal_timeout_seconds: float = 4.0
+    meal_timeout_seconds: float = 25.0
 
     # Kiểm duyệt (FN-POST-03/04/07)
     moderation_temperature: float = 0.1
