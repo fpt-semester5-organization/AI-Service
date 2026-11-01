@@ -70,29 +70,60 @@ class GeminiClient:
     def __init__(self, settings: Settings):
         self._s = settings
         self._client: genai.Client | None = None
+        self._current_key_idx: int = 0
 
     def configured(self) -> bool:
         if self._s.google_genai_use_vertexai:
             return bool(self._s.google_cloud_project)
         return bool(self._s.gemini_api_key or os.environ.get("GEMINI_API_KEY"))
 
+    def _get_api_keys(self) -> list[str]:
+        raw = self._s.gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
+        return [k.strip() for k in raw.split(",") if k.strip()]
+
     def _get(self) -> genai.Client:
         if self._client is None:
             if not self.configured():
                 raise gemini_error("Chưa cấu hình GOOGLE_CLOUD_PROJECT cho Vertex AI hoặc GEMINI_API_KEY.")
             cred = self._s.google_application_credentials
-            if cred and self._s.google_genai_use_vertexai:
-                # Thư viện xác thực của Google chỉ đọc biến môi trường thật, không đọc .env.
-                os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", str(Path(cred).expanduser().resolve()))
-            api_key = self._s.gemini_api_key or os.environ.get("GEMINI_API_KEY") or None
+            use_vertex = self._s.google_genai_use_vertexai
+            keys = self._get_api_keys()
+
+            if use_vertex:
+                # Kiểm tra tệp service account; nếu không tồn tại hoặc lỗi, tự động fallback sang GEMINI_API_KEY
+                if cred:
+                    cred_path = Path(cred).expanduser().resolve()
+                    if cred_path.is_file():
+                        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(cred_path)
+                    elif keys:
+                        log.warning("Tệp service account '%s' không tồn tại. Tự động chuyển sang Google AI Studio bằng GEMINI_API_KEY.", cred)
+                        use_vertex = False
+                elif not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") and keys:
+                    try:
+                        import google.auth
+                        google.auth.default()
+                    except Exception:
+                        log.warning("Không tìm thấy Google ADC credentials. Tự động chuyển sang Google AI Studio bằng GEMINI_API_KEY.")
+                        use_vertex = False
+
+            api_key = keys[self._current_key_idx % len(keys)] if (keys and not use_vertex) else None
+
             self._client = genai.Client(
-                vertexai=self._s.google_genai_use_vertexai,
-                project=self._s.google_cloud_project or None if self._s.google_genai_use_vertexai else None,
-                location=self._s.google_cloud_location if self._s.google_genai_use_vertexai else None,
-                api_key=api_key if not self._s.google_genai_use_vertexai else None,
+                vertexai=use_vertex,
+                project=self._s.google_cloud_project or None if use_vertex else None,
+                location=self._s.google_cloud_location if use_vertex else None,
+                api_key=api_key,
                 http_options=types.HttpOptions(timeout=int(self._s.gemini_timeout_seconds * 1000)),
             )
         return self._client
+
+    def _rotate_key_or_mode(self):
+        keys = self._get_api_keys()
+        if len(keys) > 1 and isinstance(self._client, genai.Client):
+            self._current_key_idx = (self._current_key_idx + 1) % len(keys)
+            log.warning("Đã tự động chuyển sang API key dự phòng số %s", self._current_key_idx + 1)
+            self._client = None
+
 
     async def _call(self, fn):
         attempts = self._s.gemini_max_retries + 1
@@ -102,10 +133,12 @@ class GeminiClient:
                 return await asyncio.wait_for(fn(), timeout=self._s.gemini_timeout_seconds + 2)
             except Exception as exc:  # noqa: BLE001 — ánh xạ về lỗi của hợp đồng
                 last = exc
+                if isinstance(exc, genai_errors.APIError) and exc.code in (429, 503):
+                    self._rotate_key_or_mode()
                 if i < attempts - 1 and _retryable(exc):
                     delay = 0.5 * (2 ** i)
                     if isinstance(exc, genai_errors.APIError) and exc.code == 429:
-                        delay = max(delay, 4.0 + 2.0 * i)
+                        delay = max(delay, 2.0 + 1.0 * i)
                     log.warning("Gemini lỗi lần %s (mã %s), thử lại sau %.1fs: %r", i + 1, getattr(exc, "code", None), delay, exc)
                     await asyncio.sleep(delay)
                     continue
@@ -116,6 +149,13 @@ class GeminiClient:
         if isinstance(last, genai_errors.APIError) and last.code == 408:
             raise ai_timeout() from last
         raise gemini_error(f"Gemini/Vertex AI lỗi: {type(last).__name__}") from last
+
+    def _resolve_model(self) -> str:
+        model = self._s.gemini_model.strip()
+        if model.lower() in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-3.8-flash"):
+            return "gemini-3.5-flash"
+        return model
+
 
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None) -> Generation:
@@ -129,21 +169,28 @@ class GeminiClient:
             "response_mime_type": "application/json" if json_schema else None,
             "response_schema": json_schema,
         }
-        model_name = self._s.gemini_model.lower()
-        if any(tag in model_name for tag in ("2.5", "3.1", "3.5", "3.6", "3.7", "3.8", "flash", "thinking")):
+        target_model = self._resolve_model()
+        model_lower = target_model.lower()
+        if any(tag in model_lower for tag in ("2.5", "3.1", "3.5", "3.6", "3.7", "3.8", "flash", "thinking")):
             cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
 
         cfg = types.GenerateContentConfig(**cfg_kwargs)
         started = time.perf_counter()
-        resp = await self._call(lambda: client.aio.models.generate_content(
-            model=self._s.gemini_model, contents=contents, config=cfg))
+        resp = await self._call(lambda: self._get().aio.models.generate_content(
+            model=target_model, contents=contents, config=cfg))
         latency = int((time.perf_counter() - started) * 1000)
         usage = getattr(resp, "usage_metadata", None)
         text = resp.text or ""
         if not text.strip():
+            if getattr(resp, "candidates", None) and resp.candidates:
+                c0 = resp.candidates[0]
+                if getattr(c0, "content", None) and getattr(c0.content, "parts", None):
+                    text = "".join(getattr(p, "text", "") or "" for p in c0.content.parts)
+        if not text.strip():
             raise gemini_error("Gemini trả về nội dung rỗng.")
+
         return Generation(
-            text=text, model=self._s.gemini_model,
+            text=text, model=target_model,
             prompt_tokens=int(getattr(usage, "prompt_token_count", 0) or 0),
             completion_tokens=int(getattr(usage, "candidates_token_count", 0) or 0),
             latency_ms=latency, temperature=temperature)
