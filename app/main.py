@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import httpx
 from fastapi import FastAPI
 
-from app.api.routers import barcode, chat, health, moderation, rag, vision
+from app.api.routers import barcode, chat, health, meal, moderation, rag, stt, vision
 from app.core.config import Settings, get_settings
 from app.core.errors import AiServiceError, register_handlers
 from app.core.gemini_client import GeminiClient, LLMClient
@@ -18,7 +18,10 @@ from app.services.rag.embedder import Embedder
 from app.services.rag.indexer import Indexer
 from app.services.rag.qdrant_store import QdrantStore
 from app.services.rag.retriever import Retriever
+from app.services.stt.pipeline import SttPipeline
+from app.services.stt.whisper import WhisperEngine
 from app.services.vision.ingredient_detector import IngredientDetector
+from app.stt_main import SttContainer
 
 log = logging.getLogger("veggielife")
 
@@ -33,6 +36,8 @@ class Container:
     moderator: ContentModerator
     ingredient_detector: IngredientDetector
     barcode_classifier: BarcodeClassifier
+    stt_engine: WhisperEngine
+    stt_pipeline: SttPipeline
 
 
 def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None,
@@ -44,10 +49,13 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
                       overlap_tokens=settings.rag_chunk_overlap, concurrency=settings.embedding_concurrency)
     indexer = Indexer(chunker, embedder, store)
     retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score)
+    stt_engine = WhisperEngine(settings)
+    stt_pipeline = SttPipeline(settings, stt_engine, llm, http_client)
     return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever),
                      ContentModerator(settings, llm, http_client),
                      IngredientDetector(settings, llm),
-                     BarcodeClassifier(settings, llm))
+                     BarcodeClassifier(settings, llm),
+                     stt_engine, stt_pipeline)
 
 
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
@@ -69,6 +77,7 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
                   openapi_url="/openapi.json" if settings.enable_docs else None)
     app.state.settings = settings
     app.state.container = container
+    app.state.stt = SttContainer(settings, container.llm, container.stt_engine, container.stt_pipeline)
     register_handlers(app)
     app.include_router(health.router)
     app.include_router(rag.router)
@@ -76,6 +85,8 @@ def create_app(settings: Settings | None = None, llm: LLMClient | None = None,
     app.include_router(moderation.router)
     app.include_router(vision.router)
     app.include_router(barcode.router)
+    app.include_router(stt.router)
+    app.include_router(meal.router)
     return app
 
 
