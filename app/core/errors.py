@@ -5,11 +5,12 @@ from fastapi.responses import JSONResponse
 
 
 class AiServiceError(Exception):
-    def __init__(self, error_code: str, message: str, status_code: int):
+    def __init__(self, error_code: str, message: str, status_code: int, details: dict | None = None):
         super().__init__(message)
         self.error_code = error_code
         self.message = message
         self.status_code = status_code
+        self.details = details or {}
 
 
 def unauthorized() -> AiServiceError:
@@ -64,8 +65,9 @@ def media_download_failed(message: str = "Không tải được tệp đa phươ
     return AiServiceError("MEDIA_DOWNLOAD_FAILED", message, 502)
 
 
-def not_a_recipe() -> AiServiceError:
-    return AiServiceError("NOT_A_RECIPE", "Lời thoại trong video không phải công thức nấu ăn.", 422)
+def not_a_recipe(raw_transcript: str = "") -> AiServiceError:
+    details = {"rawTranscript": raw_transcript} if raw_transcript else None
+    return AiServiceError("NOT_A_RECIPE", "Lời thoại trong video không phải công thức nấu ăn.", 422, details=details)
 
 
 def stt_error(message: str = "Whisper hoặc ffmpeg xử lý lỗi.") -> AiServiceError:
@@ -81,7 +83,10 @@ def register_handlers(app: FastAPI) -> None:
     @app.exception_handler(AiServiceError)
     async def _ai_error(_: Request, exc: AiServiceError) -> JSONResponse:
         log.error("AiServiceError [%s] %s: %s", exc.status_code, exc.error_code, exc.message)
-        return JSONResponse(status_code=exc.status_code, content={"errorCode": exc.error_code, "message": exc.message})
+        content = {"errorCode": exc.error_code, "message": exc.message}
+        if exc.details:
+            content.update(exc.details)
+        return JSONResponse(status_code=exc.status_code, content=content)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:

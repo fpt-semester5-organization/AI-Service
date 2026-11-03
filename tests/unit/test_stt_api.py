@@ -127,6 +127,7 @@ def test_transcript_without_recipe(videos):
     with TestClient(app) as c:
         r = post(c)
     assert r.status_code == 422 and r.json()["errorCode"] == "NOT_A_RECIPE"
+    assert r.json().get("rawTranscript") == "Hôm nay mình nấu canh nấm"
 
 
 @needs_ffmpeg

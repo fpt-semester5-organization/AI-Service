@@ -103,11 +103,38 @@ def test_non_image_content_is_image_invalid(settings, store):
     assert r.status_code == 400 and r.json()["errorCode"] == "IMAGE_INVALID" and llm.generate_calls == []
 
 
-def test_download_failure_is_explicit_not_skipped(settings, store):
+def test_download_failure_is_gracefully_skipped(settings, store):
     c, llm = make(settings, store, handler=lambda r: httpx.Response(404))
     with c:
         r = c.post("/moderation/check", json={**REQ, "imageUrls": ["https://res.cloudinary.com/a.jpg"]}, headers=HEADERS)
-    assert r.status_code == 502 and r.json()["errorCode"] == "MEDIA_DOWNLOAD_FAILED" and llm.generate_calls == []
+    assert r.status_code == 200
+    assert len(llm.generate_calls) == 1
+    assert llm.generate_calls[0][1][0].images == ()
+
+
+def test_download_failure_partial_keeps_valid_images(settings, store):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "404" in str(request.url):
+            return httpx.Response(404)
+        return httpx.Response(200, content=jpeg(800, 600))
+
+    c, llm = make(settings, store, handler=handler)
+    urls = ["https://res.cloudinary.com/404.jpg", "https://images.unsplash.com/photo-valid.jpg"]
+    with c:
+        r = c.post("/moderation/check", json={**REQ, "imageUrls": urls}, headers=HEADERS)
+    assert r.status_code == 200
+    assert len(llm.generate_calls) == 1
+    imgs = llm.generate_calls[0][1][0].images
+    assert len(imgs) == 1 and imgs[0].mime_type == "image/jpeg"
+    assert "[IMAGES 1]" in r.json()["audit"]["prompt"]
+
+
+def test_unsplash_host_allowed(settings, store):
+    c, llm = make(settings, store, handler=lambda r: httpx.Response(200, content=png(640, 480)))
+    with c:
+        r = c.post("/moderation/check", json={**REQ, "imageUrls": ["https://images.unsplash.com/photo-1546069901.png"]}, headers=HEADERS)
+    assert r.status_code == 200
+    assert len(llm.generate_calls) == 1
 
 
 def test_redirect_to_other_host_is_blocked(settings, store):

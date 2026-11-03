@@ -7,7 +7,7 @@ SOURCE_TYPES = (
     "RECIPE", "POST", "VIDEO_TRANSCRIPT", "VIDEO_RECIPE",
     "NUTRITION_DOC", "E_NUMBER", "ALLERGEN", "INGREDIENT",
 )
-SOURCE_ID_RE = re.compile(r"^\d{1,18}$")  # sourceId luôn là chuỗi chữ số (D119)
+SOURCE_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,64}$")  # sourceId nhận chữ số, chữ cái, gạch ngang/dưới (hỗ trợ cả E100, E150a)
 # Namespace cố định của UUIDv5 (Sprint Plan Phụ lục B.2)
 POINT_NAMESPACE = uuid.UUID("6f1c0f62-4f0b-4c7e-9a52-1d6d9a0c2b11")
 

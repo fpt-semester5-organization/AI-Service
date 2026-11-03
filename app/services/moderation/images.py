@@ -1,13 +1,16 @@
 """Tải ảnh của bài đăng để kiểm duyệt: chỉ https tới host cho phép (chống SSRF), tải có giới hạn, kiểm chữ ký tệp."""
 import ipaddress
+import logging
 from urllib.parse import urljoin, urlsplit
 
 import httpx
 
 from app.core.config import Settings
-from app.core.errors import file_too_large, image_invalid, media_download_failed, validation_error
+from app.core.errors import AiServiceError, file_too_large, image_invalid, media_download_failed, validation_error
 from app.core.gemini_client import ImagePart
 from app.core.images import sniff_image
+
+log = logging.getLogger("veggielife.moderation.images")
 
 MAX_REDIRECTS = 3
 CHUNK = 64 * 1024
@@ -55,7 +58,7 @@ async def _download(client: httpx.AsyncClient, url: str, settings: Settings) -> 
 
 
 async def fetch_images(urls: list[str], settings: Settings, client: httpx.AsyncClient | None = None) -> list[ImagePart]:
-    """Tải từng ảnh; ảnh không phải JPG/PNG/WEBP hợp lệ → 400 IMAGE_INVALID (không bỏ qua im lặng)."""
+    """Tải từng ảnh an toàn; bỏ qua nếu tải thất bại (404, lỗi mạng) để tiếp tục kiểm duyệt văn bản; ảnh không phải JPG/PNG/WEBP hợp lệ → 400 IMAGE_INVALID."""
     if len(urls) > settings.moderation_max_images:
         raise validation_error(f"Tối đa {settings.moderation_max_images} ảnh mỗi lần kiểm duyệt.")
     if not urls:
@@ -66,11 +69,17 @@ async def fetch_images(urls: list[str], settings: Settings, client: httpx.AsyncC
     try:
         parts: list[ImagePart] = []
         for url in urls:
-            data = await _download(http, url, settings)
-            info = sniff_image(data)
-            if info is None:
-                raise image_invalid("Ảnh trong imageUrls phải là JPG, PNG hoặc WEBP hợp lệ.")
-            parts.append(ImagePart(data=data, mime_type=info.mime_type))
+            try:
+                data = await _download(http, url, settings)
+                info = sniff_image(data)
+                if info is None:
+                    raise image_invalid("Ảnh trong imageUrls phải là JPG, PNG hoặc WEBP hợp lệ.")
+                parts.append(ImagePart(data=data, mime_type=info.mime_type))
+            except AiServiceError as exc:
+                if exc.error_code == "MEDIA_DOWNLOAD_FAILED":
+                    log.warning("Bỏ qua ảnh không tải được từ URL '%s': %s", url, exc.message)
+                    continue
+                raise
         return parts
     finally:
         if own:

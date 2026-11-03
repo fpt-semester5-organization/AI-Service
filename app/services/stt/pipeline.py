@@ -7,7 +7,7 @@ import httpx
 from fastapi import UploadFile
 
 from app.core.config import Settings
-from app.core.errors import no_speech
+from app.core.errors import AiServiceError, no_speech, not_a_recipe
 from app.core.gemini_client import LLMClient
 from app.schemas.stt import Audit, TranscribeResponse, Usage, VideoToRecipeResponse
 from app.services.stt import audio, media
@@ -55,7 +55,12 @@ class SttPipeline:
             video = work / "input.bin"
             await media.download_video(video_url, video, self._s, client=self._http)
             p = await self._run(video, work)
-        ex = await extract_recipe(self._llm, self._s, p.transcription.text)
+        try:
+            ex = await extract_recipe(self._llm, self._s, p.transcription.text)
+        except AiServiceError as e:
+            if e.error_code == "NOT_A_RECIPE":
+                raise not_a_recipe(p.transcription.text)
+            raise
         g = ex.generation
         summary = (
             f"{ex.recipe.title} (Khẩu phần: {ex.recipe.servings or 2} người, {len(ex.recipe.ingredients)} nguyên liệu, {len(ex.recipe.steps)} bước chế biến)"

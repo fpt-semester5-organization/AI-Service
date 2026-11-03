@@ -53,8 +53,8 @@ class Settings(BaseSettings):
     whisper_compute_type: str = "int8"
     whisper_device: str = "cpu"
     whisper_language: str = "vi"           # để trống = tự nhận diện
-    whisper_cpu_threads: int = 0           # 0 = để thư viện tự chọn (Cloud Run: đặt bằng số vCPU)
-    whisper_beam_size: int = 5             # 1 = tham lam, nhanh hơn ~2x, kém chính xác hơn
+    whisper_cpu_threads: int = 4           # 4 luồng tính toán tối ưu CPU đa nhân
+    whisper_beam_size: int = 1             # 1 = tham lam (greedy search), nhanh hơn ~2.5x
     stt_min_seconds: float = 10.0          # BR-AI-STT-01
     stt_max_seconds: float = 300.0
     stt_min_sample_rate: int = 16000
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     moderation_temperature: float = 0.1
     moderation_max_output_tokens: int = 512
     moderation_max_images: int = 4
-    moderation_image_hosts: str = "res.cloudinary.com"   # phân tách bằng dấu phẩy (chống SSRF)
+    moderation_image_hosts: str = "res.cloudinary.com,images.unsplash.com"   # phân tách bằng dấu phẩy (chống SSRF)
     moderation_image_timeout_seconds: float = 10.0
 
     # Vision (FN-VIS-01)
