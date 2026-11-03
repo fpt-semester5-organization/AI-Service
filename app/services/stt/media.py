@@ -74,7 +74,8 @@ async def download_video(url: str, dest: Path, settings: Settings, *, client: ht
     hosts = settings.stt_allowed_hosts
     current = validate_video_url(url, hosts)
     own = client is None
-    http = client or httpx.AsyncClient(timeout=httpx.Timeout(15.0, read=30.0), follow_redirects=False)
+    timeout_config = httpx.Timeout(connect=20.0, read=settings.stt_download_timeout_seconds, write=30.0, pool=30.0)
+    http = client or httpx.AsyncClient(timeout=timeout_config, follow_redirects=False)
 
     async def run() -> None:
         nonlocal current
@@ -100,12 +101,29 @@ async def download_video(url: str, dest: Path, settings: Settings, *, client: ht
                 return
         raise media_download_failed("Quá nhiều lần chuyển hướng.")
 
-    try:
-        await asyncio.wait_for(run(), timeout=settings.stt_download_timeout_seconds)
-    except asyncio.TimeoutError as exc:
-        raise media_download_failed("Tải video quá thời gian.") from exc
-    except httpx.HTTPError as exc:
-        raise media_download_failed(f"Không tải được video: {type(exc).__name__}.") from exc
-    finally:
-        if own:
-            await http.aclose()
+    max_retries = 3 if own else 1
+    for attempt in range(max_retries):
+        try:
+            await asyncio.wait_for(run(), timeout=settings.stt_download_timeout_seconds)
+            return
+        except asyncio.TimeoutError as exc:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(1.0)
+                continue
+            raise media_download_failed("Tải video quá thời gian.") from exc
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            if attempt < max_retries - 1:
+                # Nếu URL có transformation Cloudinary on-the-fly (/vc_auto,q_auto/), thử tải URL gốc trực tiếp
+                if "/video/upload/vc_auto,q_auto/" in current:
+                    try:
+                        current = validate_video_url(current.replace("/video/upload/vc_auto,q_auto/", "/video/upload/"), hosts)
+                    except Exception:
+                        pass
+                await asyncio.sleep(1.0)
+                continue
+            raise media_download_failed(f"Không tải được video: {type(exc).__name__}.") from exc
+        except httpx.HTTPError as exc:
+            raise media_download_failed(f"Không tải được video: {type(exc).__name__}.") from exc
+        finally:
+            if own and attempt == max_retries - 1:
+                await http.aclose()

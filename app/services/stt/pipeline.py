@@ -57,9 +57,14 @@ class SttPipeline:
             p = await self._run(video, work)
         ex = await extract_recipe(self._llm, self._s, p.transcription.text)
         g = ex.generation
+        summary = (
+            f"{ex.recipe.title} (Khẩu phần: {ex.recipe.servings or 2} người, {len(ex.recipe.ingredients)} nguyên liệu, {len(ex.recipe.steps)} bước chế biến)"
+            if ex.recipe.title else None
+        )
         return VideoToRecipeResponse(
             duration_seconds=p.duration_seconds, stt_model_version=self._engine.model_version,
             raw_transcript=p.transcription.text, recipe=ex.recipe,
+            ai_summary=summary, summary=summary,
             usage=Usage(model=g.model, prompt_tokens=g.prompt_tokens, completion_tokens=g.completion_tokens,
                         latency_ms=g.latency_ms, temperature=g.temperature),
             audit=Audit(prompt=ex.prompt, raw_response=g.text))

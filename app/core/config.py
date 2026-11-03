@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     stt_min_sample_rate: int = 16000
     stt_max_upload_mb: int = 100           # BR-AI-STT-03
     stt_allowed_video_hosts: str = "res.cloudinary.com,cloudinary.com,commondatastorage.googleapis.com,localhost,127.0.0.1"   # phân tách bằng dấu phẩy (chống SSRF)
-    stt_download_timeout_seconds: float = 60.0
+    stt_download_timeout_seconds: float = 120.0
     stt_ffmpeg_timeout_seconds: float = 120.0
     stt_concurrency: int = 1               # SCA-2: 1 tác vụ STT mỗi instance
     stt_recipe_temperature: float = 0.2    # B.4: tác vụ có cấu trúc ≤ 0,4

@@ -36,6 +36,8 @@ class VideoToRecipeResponse(CamelModel):
     stt_model_version: str
     raw_transcript: str
     recipe: ExtractedRecipe
+    ai_summary: str | None = None
+    summary: str | None = None
     usage: Usage
     audit: Audit
 
