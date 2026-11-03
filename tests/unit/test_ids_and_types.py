@@ -17,5 +17,6 @@ def test_eight_source_types():
     assert len(SOURCE_TYPES) == 8 and "CHAT" not in SOURCE_TYPES
 
 
-def test_source_id_is_digit_string():
+def test_source_id_is_valid_format():
     assert SOURCE_ID_RE.match("512") and not SOURCE_ID_RE.match("01-dam.md") and not SOURCE_ID_RE.match("")
+    assert SOURCE_ID_RE.match("E100") and SOURCE_ID_RE.match("E150a") and SOURCE_ID_RE.match("ING-99")
