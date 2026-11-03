@@ -1,13 +1,20 @@
 """Cấu hình đọc từ biến môi trường / `.env` (D118, D120). Mọi giá trị cấu hình đi qua đây."""
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=[str(BASE_DIR / ".env"), ".env"],
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-    # Bảo mật nội bộ (SEC-11)
+    # Bảo mật nội bộ (SEC-11) - nạp từ biến môi trường hoặc .env, không ghi cứng trong code
     internal_api_key: str = ""
 
     # Gemini qua Vertex AI (D120)
@@ -22,7 +29,7 @@ class Settings(BaseSettings):
 
 
 
-    gemini_timeout_seconds: float = 25.0
+    gemini_timeout_seconds: float = 0.0
     gemini_max_retries: int = 3
     embedding_model: str = "gemini-embedding-001"
     embedding_dimensions: int = 768
@@ -66,8 +73,8 @@ class Settings(BaseSettings):
 
     # Thực đơn tuần (FN-MEAL-01, B.4): tác vụ có cấu trúc, temperature ≤ 0,4; timeout 25s
     meal_temperature: float = 0.3
-    meal_max_output_tokens: int = 2048
-    meal_timeout_seconds: float = 25.0
+    meal_max_output_tokens: int = 4096
+    meal_timeout_seconds: float = 0.0
 
     # Kiểm duyệt (FN-POST-03/04/07)
     moderation_temperature: float = 0.1

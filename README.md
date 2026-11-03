@@ -191,7 +191,7 @@ pytest tests/unit/test_stt_*.py -v
 uvicorn app.stt_main:app --host 0.0.0.0 --port 8080 --reload
 ```
 - Giao diện Swagger UI: [http://localhost:8080/docs](http://localhost:8080/docs)
-- Xác thực: bấm nút **Authorize** và nhập `INTERNAL_API_KEY` (mặc định: `veggielife-secret-internal-key-2026`).
+- Xác thực: bấm nút **Authorize** và nhập `INTERNAL_API_KEY` (lấy từ tệp `.env`).
 
 **5. Đo đạc hiệu năng và trích xuất công thức với video mẫu thật:**
 ```bash

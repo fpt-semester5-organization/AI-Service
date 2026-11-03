@@ -4,6 +4,7 @@ Chạy:  python -m scripts.load_fixtures --base-url http://localhost:8081 --key 
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "rag" / "fixtures"
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:8080")
-    ap.add_argument("--key", required=True)
+    ap.add_argument("--key", default=os.getenv("INTERNAL_API_KEY", ""), help="X-Internal-Api-Key")
     ap.add_argument("--nutrition", action="store_true", help="gọi thêm /rag/reindex/nutrition")
     a = ap.parse_args()
     headers = {"X-Internal-Api-Key": a.key}

@@ -11,6 +11,7 @@ Thoát 0 nếu cả ba nhóm đạt; 1 nếu không.
 """
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -103,7 +104,7 @@ def evaluate(ask: Callable[[dict], dict], data: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:8080")
-    ap.add_argument("--key", required=True)
+    ap.add_argument("--key", default=os.getenv("INTERNAL_API_KEY", ""), help="X-Internal-Api-Key")
     ap.add_argument("--out")
     a = ap.parse_args()
     data = json.loads(GOLDEN.read_text(encoding="utf-8"))

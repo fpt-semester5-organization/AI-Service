@@ -48,7 +48,7 @@ class FakeLLM:
         self.count_calls += 1
         return len(words(text))
 
-    async def generate(self, system, messages, *, temperature, max_output_tokens, json_schema=None) -> Generation:
+    async def generate(self, system, messages, *, temperature, max_output_tokens, json_schema=None, **kwargs) -> Generation:
         if self.fail:
             raise self.fail
         self.generate_calls.append((system, messages))

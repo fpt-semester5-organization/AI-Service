@@ -6,6 +6,8 @@ Backend còn kiểm lại calo ±10% và dị ứng; ở đây bảo đảm đ�
 import asyncio
 import logging
 
+import httpx
+
 from app.core.config import Settings
 from app.core.errors import ai_timeout, gemini_error
 from app.core.gemini_client import LLMClient, Message, parse_json_object
@@ -186,19 +188,20 @@ class MealGenerator:
         schema = build_response_schema(duration_days, start_date) if (duration_days != 7 or start_date) else RESPONSE_SCHEMA
         # Lần xếp lại tăng nhẹ temperature để có phương án khác, vẫn ≤ 0,4.
         temperature = min(MAX_TEMPERATURE, self._s.meal_temperature + 0.05 * (req.attempt - 1))
+        coro = self._llm.generate(
+            prompt.system,
+            prompt.messages,
+            temperature=temperature,
+            max_output_tokens=self._s.meal_max_output_tokens,
+            json_schema=schema,
+        )
         try:
-            gen = await asyncio.wait_for(
-                self._llm.generate(
-                    prompt.system,
-                    prompt.messages,
-                    temperature=temperature,
-                    max_output_tokens=self._s.meal_max_output_tokens,
-                    json_schema=schema,
-                ),
-                timeout=self._s.meal_timeout_seconds,
-            )
-        except (asyncio.TimeoutError, TimeoutError) as exc:
-            raise ai_timeout(f"Quá thời gian xếp thực đơn ({int(self._s.meal_timeout_seconds)} giây).") from exc
+            if self._s.meal_timeout_seconds and self._s.meal_timeout_seconds > 0:
+                gen = await asyncio.wait_for(coro, timeout=self._s.meal_timeout_seconds)
+            else:
+                gen = await coro
+        except (asyncio.TimeoutError, httpx.TimeoutException) as exc:
+            raise ai_timeout() from exc
 
         data = parse_json_object(gen.text)
         if data is None:
@@ -243,19 +246,20 @@ class MealGenerator:
         gen = None
         data = None
         try:
-            gen = await asyncio.wait_for(
-                self._llm.generate(
-                    prompt.system,
-                    prompt.messages,
-                    temperature=0.3,
-                    max_output_tokens=self._s.meal_max_output_tokens,
-                    json_schema=SWAP_RESPONSE_SCHEMA,
-                ),
-                timeout=self._s.meal_timeout_seconds,
+            coro = self._llm.generate(
+                prompt.system,
+                prompt.messages,
+                temperature=0.3,
+                max_output_tokens=self._s.meal_max_output_tokens,
+                json_schema=SWAP_RESPONSE_SCHEMA,
             )
+            if self._s.meal_timeout_seconds and self._s.meal_timeout_seconds > 0:
+                gen = await asyncio.wait_for(coro, timeout=self._s.meal_timeout_seconds)
+            else:
+                gen = await coro
             data = parse_json_object(gen.text)
         except Exception as ex:
-            log.warning("AI swap-by-note LLM call failed or timed out: %s. Using fallback scoring.", ex)
+            log.warning("AI swap-by-note LLM call failed: %s. Using fallback scoring.", ex)
 
         if isinstance(data, dict):
             sel_id = data.get("selectedRecipeId")
