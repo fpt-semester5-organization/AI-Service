@@ -31,6 +31,8 @@ class CandidateRecipe(CamelModel):
     view_count: int | None = 0
     difficulty_level: str | None = None
     category_name: str | None = None
+    food_id: int | None = None
+    food_name: str | None = None
     uses_fridge_item: bool = False
 
 
