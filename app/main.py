@@ -21,6 +21,7 @@ from app.services.rag.qdrant_store import QdrantStore
 from app.services.rag.retriever import Retriever
 from app.services.stt.pipeline import SttPipeline
 from app.services.stt.whisper import WhisperEngine
+from app.services.rag.pdf_ocr import PdfOcr
 from app.services.vision.ingredient_detector import IngredientDetector
 from app.stt_main import SttContainer
 
@@ -40,6 +41,7 @@ class Container:
     barcode_classifier: BarcodeClassifier
     stt_engine: WhisperEngine
     stt_pipeline: SttPipeline
+    pdf_ocr: PdfOcr
 
 
 def build_container(settings: Settings, llm: LLMClient | None = None, store: QdrantStore | None = None,
@@ -50,7 +52,8 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
     chunker = Chunker(llm.count_tokens, chunk_tokens=settings.rag_chunk_tokens,
                       overlap_tokens=settings.rag_chunk_overlap, concurrency=settings.embedding_concurrency)
     indexer = Indexer(chunker, embedder, store)
-    retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score)
+    retriever = Retriever(embedder, store, top_k=settings.rag_top_k, min_score=settings.rag_min_score,
+                          source_types=settings.chat_rag_source_types or None)
     stt_engine = WhisperEngine(settings)
     stt_pipeline = SttPipeline(settings, stt_engine, llm, http_client)
     return Container(settings, llm, store, indexer, ChatAnswerer(settings, llm, retriever),
@@ -58,7 +61,7 @@ def build_container(settings: Settings, llm: LLMClient | None = None, store: Qdr
                      ContentModerator(settings, llm, http_client),
                      IngredientDetector(settings, llm),
                      BarcodeClassifier(settings, llm),
-                     stt_engine, stt_pipeline)
+                     stt_engine, stt_pipeline, PdfOcr(settings, llm))
 
 
 def create_app(settings: Settings | None = None, llm: LLMClient | None = None,

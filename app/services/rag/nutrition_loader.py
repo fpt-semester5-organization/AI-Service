@@ -95,7 +95,8 @@ async def reindex_nutrition(directory: str | Path, indexer: Indexer, store: Qdra
     if not loaded.failed:
         keep = {str(d.id) for d in loaded.docs}
         for stale in await store.list_source_ids("NUTRITION_DOC") - keep:
-            if stale.isdigit() and int(stale) >= BOOK_ID_FLOOR:
-                continue  # id >= 1000 do scripts/ingest_books.py nạp (sách nguyên văn), không phải tệp trong thư mục
+            if not stale.isdigit() or int(stale) >= BOOK_ID_FLOOR:
+                # id >= 1000: sách do scripts/ingest_books.py nạp; id không phải số: tài liệu Admin tải lên (DOC_...)
+                continue
             await store.delete_source("NUTRITION_DOC", stale)
     return ReindexResult(len(loaded.docs), chunks, tokens, loaded.failed)

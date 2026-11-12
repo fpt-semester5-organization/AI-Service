@@ -5,7 +5,7 @@ from app.core.config import Settings
 from app.core.errors import unsafe_content
 from app.core.gemini_client import LLMClient, parse_json_object
 from app.schemas.chat import Audit, ChatAnswerRequest, ChatAnswerResponse, ChatSource, Usage
-from app.services.chat.prompt import RESPONSE_SCHEMA, build_prompt
+from app.services.chat.prompt import NO_CONTEXT_ANSWER, RESPONSE_SCHEMA, build_prompt
 from app.services.chat.safety import check_question, is_greeting
 from app.services.rag.retriever import Retriever
 from app.services.rag.types import Hit
@@ -41,6 +41,14 @@ class ChatAnswerer:
         hits = [] if is_greet else await self._retriever.search(req.question)  # Qdrant lỗi/quá 3 giây → 503, không bỏ qua RAG
         prompt = build_prompt(req.question, req.history, req.profile, hits, req.candidate_recipes,
                               self._s.chat_history_turns, is_greeting_turn=is_greet)
+        if not is_greet and not hits:
+            # RAG chặt: không có đoạn tri thức nào đạt ngưỡng → từ chối cố định, không gọi Gemini (0 token).
+            log.info("Không có ngữ cảnh RAG, trả câu từ chối cố định.")
+            return ChatAnswerResponse(
+                answer=NO_CONTEXT_ANSWER, sources=[], rag_used=False, recommended_recipe_ids=[],
+                usage=Usage(model=self._s.gemini_model, prompt_tokens=0, completion_tokens=0,
+                            latency_ms=0, temperature=self._s.chat_temperature),
+                audit=Audit(prompt=prompt.as_audit_text(), raw_response=NO_CONTEXT_ANSWER))
         gen = await self._llm.generate(
             prompt.system, prompt.messages, temperature=self._s.chat_temperature,
             max_output_tokens=self._s.chat_max_output_tokens, json_schema=RESPONSE_SCHEMA)
