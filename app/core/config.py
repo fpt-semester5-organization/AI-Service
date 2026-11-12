@@ -85,7 +85,14 @@ class Settings(BaseSettings):
 
     # Vision (FN-VIS-01)
     vision_temperature: float = 0.2
-    vision_max_output_tokens: int = 4096
+    vision_max_output_tokens: int = 8192  # có thêm trường visualCues cho tối đa 30 mục
+    # Ảnh nhiều món sinh ~4.5k token, Gemini mất 20–50s → timeout riêng, không dùng GEMINI_TIMEOUT_SECONDS (25s) của chat.
+    # Phải nhỏ hơn AI_DETECTION_TIMEOUT_MS của frontend (65s) để người dùng nhận lỗi AI_TIMEOUT rõ ràng. 0 = dùng giá trị chung.
+    vision_timeout_seconds: float = 55.0
+    # Bước 4 kế hoạch cải tiến: token suy nghĩ cho Vision (0 = tắt) và tên trường khung trong schema
+    # ("box2d" hiện hành | "box_2d" theo tài liệu Gemini). Hợp đồng trả về Backend luôn là "box2d".
+    vision_thinking_budget: int = 0
+    vision_box_key: str = "box2d"
 
     # Chat
     chat_history_turns: int = 6

@@ -51,7 +51,7 @@ class Message:
 class LLMClient(Protocol):
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None,
-                       timeout: float | None = None) -> Generation: ...
+                       timeout: float | None = None, thinking_budget: int | None = None) -> Generation: ...
 
     async def embed(self, text: str, *, task: str) -> list[float]: ...
 
@@ -202,7 +202,7 @@ class GeminiClient:
 
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None,
-                       timeout: float | None = None) -> Generation:
+                       timeout: float | None = None, thinking_budget: int | None = None) -> Generation:
         client = self._get()
         contents = [types.Content(role=m.role, parts=[types.Part(text=m.text), *(
             types.Part.from_bytes(data=i.data, mime_type=i.mime_type) for i in m.images)]) for m in messages]
@@ -219,7 +219,8 @@ class GeminiClient:
         target_model = self._resolve_model()
         model_lower = target_model.lower()
         if any(tag in model_lower for tag in ("2.5", "2.0", "3.0", "3.1", "3.5", "3.6", "3.7", "3.8", "flash", "thinking")):
-            cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+            # Mặc định tắt suy nghĩ (nhanh, rẻ); tác vụ cần lập luận (vd. Vision) có thể truyền thinking_budget > 0.
+            cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=max(0, thinking_budget or 0))
 
         cfg = types.GenerateContentConfig(**cfg_kwargs)
         started = time.perf_counter()

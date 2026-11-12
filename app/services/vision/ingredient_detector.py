@@ -1,5 +1,8 @@
 """Nhận diện nguyên liệu từ ảnh tủ lạnh (FN-VIS-01, BR-AI-CV-01, BR-USR-VIS-FRESH-01): kiểm ảnh → Gemini Vision → chuẩn hóa."""
+import json
 import logging
+import re
+import unicodedata
 from typing import Any
 
 from app.core.config import Settings
@@ -82,38 +85,80 @@ QUY TẮC BẤT BIẾN:
    - amount: Số lượng ước tính dạng số (ví dụ: 3, 1, 0.5, 4, 200...).
    - unit: Đơn vị tính (ví dụ: "quả", "trái", "củ", "bó", "miếng", "g", "kg", "cây", "hộp", "túi"...).
 
+7. QUY TRÌNH QUAN SÁT TRƯỚC – ĐẶT TÊN SAU (BẮT BUỘC):
+   - Với MỖI vật thể, điền trường visualCues TRƯỚC trường name: TỐI ĐA 6 TỪ KHÓA, cách nhau dấu phẩy, chỉ nêu đặc điểm phân biệt (hình khối, bề mặt, cuống/đài lá), ví dụ "khối hộp, múi dọc, cuống dày" hoặc "cầu trơn, đài sao". Không viết câu, không lặp lại màu nếu không cần.
+   - name PHẢI suy ra từ visualCues. Nếu visualCues ghi "múi dọc", "khối hộp", "cuống dày" thì KHÔNG được đặt tên "Cà chua"; nếu ghi "lá cuộn", "gân lá" thì KHÔNG được đặt tên "Ớt chuông".
+   - Bị che khuất, mờ, chỉ thấy một phần hoặc nằm trong hộp mờ → ghi rõ trong visualCues và hạ confidence.
+
+8. PHÂN BIỆT HÌNH THÁI CÁC NGUYÊN LIỆU DỄ NHẦM (BẮT BUỘC KIỂM TRƯỚC KHI ĐẶT TÊN):
+   - Đánh giá theo HÌNH KHỐI và CẤU TRÚC, KHÔNG chỉ dựa vào màu sắc (ớt chuông đỏ và cà chua chín cùng màu đỏ).
+   - ỚT CHUÔNG: hình khối hộp/chuông, thành có 3–4 MÚI DỌC lồi lõm chạy từ cuống xuống đáy, đáy thường có 3–4 núm; cuống xanh DÀY, CỨNG, cong, cắm sâu vào phần vai lõm; vỏ dày, bóng như sáp; mặt cắt rỗng ruột, có lõi hạt trắng bám vách.
+     + Ớt chuông có 4 màu phổ biến: ĐỎ, VÀNG, CAM, XANH LÁ. Quả lớn (~150–250g) màu VÀNG hoặc CAM, vỏ bóng sáp, có múi/vai lõm → gần như chắc chắn là ỚT CHUÔNG, không phải cà chua.
+     + Ớt chuông NẰM NGHIÊNG hoặc nhìn từ đáy trông gần tròn: vẫn nhận ra qua các núm/thùy lồi ở đáy, rãnh múi, vỏ phản chiếu bóng loáng như nhựa và KHÔNG có đài sao. Không kết luận "cầu trơn" chỉ vì nhìn một mặt.
+     + Ớt chuông mini/ớt ngọt nhỏ: hình chuông nhỏ, nhăn múi, cuống xanh – đặt tên "Ớt chuông mini", không phải cà chua bi.
+   - CÀ CHUA: hình CẦU hoặc cầu dẹt, bề mặt TRƠN, căng, không có múi dọc (cà chua múi/beefsteak chỉ có gờ nông, bề ngang lớn hơn chiều cao); đài lá xanh nhỏ hình NGÔI SAO 5–6 cánh mảnh, cuống ngắn, mảnh; mặt cắt đặc, nhiều ngăn chứa hạt trong thạch.
+     + Cà chua thường màu ĐỎ; cà chua xanh (chưa chín) tròn trơn, có đài sao. Cà chua vàng/cam CỠ LỚN rất hiếm – chỉ đặt tên "Cà chua" khi thấy rõ đài sao và quả tròn trơn.
+   - BẮP CẢI TÍM: khối cầu LÁ CUỘN chặt, thấy gân lá trắng/nhạt và mép lá xếp lớp, màu tím đỏ sẫm, bề mặt MỜ không bóng → KHÔNG phải ớt chuông đỏ. Củ dền: củ tròn tím sẫm có rễ đuôi.
+   - Cà chua bi: quả cầu nhỏ, thường mọc thành chùm trên cành. Ớt sừng/ớt chỉ thiên: quả thuôn dài, nhọn đầu.
+   - Tên ớt chuông dùng dạng "Ớt chuông đỏ" / "Ớt chuông vàng" / "Ớt chuông cam" / "Ớt chuông xanh" theo màu thực tế.
+   - Nếu đã kiểm các dấu hiệu trên mà vẫn không chắc, chọn tên phù hợp nhất và hạ confidence xuống dưới 0.6; không đặt tên theo màu.
+
+9. HỘP BAO & ĐỘ TIN CẬY:
+   - Mỗi box2d chỉ chứa MỘT loại nguyên liệu. KHÔNG gộp ớt chuông và cà chua (hay hai loại khác nhau) đứng cạnh nhau vào cùng một hộp hoặc cùng một mục; mỗi loại một mục với hộp riêng.
+   - Nhiều quả cùng loại nằm sát nhau có thể gom một hộp và ghi số lượng; cùng loại ở các vị trí khác nhau thì tách mục.
+   - KHÔNG BỎ SÓT: quét lần lượt TỪNG NGĂN/KỆ từ trên xuống, trái sang phải, cả ngăn cửa và hộc kéo; vật nhỏ, bị che một phần, nằm phía sau hoặc trong hộp/túi trong suốt vẫn phải liệt kê (hạ confidence nếu không chắc) thay vì bỏ qua.
+   - confidence phải phản ánh thực tế: ≥ 0.9 chỉ khi thấy rõ toàn bộ đặc điểm hình thái; 0.6–0.85 khi bị che một phần hoặc trong bao bì; < 0.6 khi phải đoán. KHÔNG gán cùng một giá trị cho mọi mục.
+
 ĐỊNH DẠNG ĐẦU RA: JSON đúng schema."""
 
-USER_TEXT = "Hãy quét kỹ toàn bộ hình ảnh và nhận diện tất cả các nguyên liệu thực phẩm cùng định lượng/số lượng và hộp bao box2d [ymin, xmin, ymax, xmax] của từng món trong ảnh. Bất kể là chụp thực tế, trong tủ lạnh, trên bàn bếp hay ảnh chụp hiển thị thực phẩm, miễn có nguyên liệu thực phẩm thì hãy liệt kê đầy đủ. Chỉ trả về items: [] khi hoàn toàn không có bất kỳ nguyên liệu thực phẩm nào trong ảnh."
+USER_TEXT = "Hãy quét kỹ toàn bộ hình ảnh và nhận diện tất cả các nguyên liệu thực phẩm cùng định lượng/số lượng và hộp bao box2d [ymin, xmin, ymax, xmax] của từng món trong ảnh. Bất kể là chụp thực tế, trong tủ lạnh, trên bàn bếp hay ảnh chụp hiển thị thực phẩm, miễn có nguyên liệu thực phẩm thì hãy liệt kê đầy đủ. Với mỗi vật thể hãy ghi visualCues (hình khối, bề mặt, cuống/đài lá) trước rồi mới đặt name. Phân biệt ớt chuông (khối hộp, có múi dọc, cuống dày; có màu đỏ, vàng, cam, xanh) với cà chua (hình cầu trơn, đài lá hình sao) và bắp cải tím (lá cuộn, có gân) theo hình thái, không theo màu. Mỗi hộp bao chỉ chứa một loại nguyên liệu. Bỏ qua đồ điện tử, đồ gia dụng và mọi vật phi thực phẩm. Chỉ trả về items: [] khi hoàn toàn không có bất kỳ nguyên liệu thực phẩm nào trong ảnh."
 
-RESPONSE_SCHEMA: dict[str, Any] = {
-    "type": "OBJECT",
-    "properties": {
-        "items": {"type": "ARRAY", "items": {
-            "type": "OBJECT",
-            "properties": {
-                "name": {"type": "STRING"},
-                "confidence": {"type": "NUMBER"},
-                "freshnessStatus": {"type": "STRING", "enum": list(FRESHNESS)},
-                "foodGroup": {"type": "STRING"},
-                "isAnimalProduct": {"type": "BOOLEAN"},
-                "isRedMeat": {"type": "BOOLEAN"},
-                "quantity": {
-                    "type": "STRING",
-                    "description": "Định lượng/số lượng ước tính bằng tiếng Việt, ví dụ: '3 quả (~450g)', '1 bó (~500g)'",
+def build_response_schema(box_key: str = "box2d") -> dict[str, Any]:
+    """Schema JSON cho Gemini; box_key = tên trường khung ("box2d" hoặc "box_2d")."""
+    schema: dict[str, Any] = {
+        "type": "OBJECT",
+        "properties": {
+            "items": {"type": "ARRAY", "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "visualCues": {
+                        "type": "STRING",
+                        "description": "Tối đa 6 từ khóa quan sát trước khi đặt tên: hình khối, bề mặt, cuống/đài lá",
+                    },
+                    "name": {"type": "STRING"},
+                    "confidence": {"type": "NUMBER"},
+                    "freshnessStatus": {"type": "STRING", "enum": list(FRESHNESS)},
+                    "foodGroup": {"type": "STRING"},
+                    "isAnimalProduct": {"type": "BOOLEAN"},
+                    "isRedMeat": {"type": "BOOLEAN"},
+                    "quantity": {
+                        "type": "STRING",
+                        "description": "Định lượng/số lượng ước tính bằng tiếng Việt, ví dụ: '3 quả (~450g)', '1 bó (~500g)'",
+                    },
+                    "amount": {"type": "NUMBER", "description": "Số lượng ước tính dạng số"},
+                    "unit": {"type": "STRING", "description": "Đơn vị tính (quả, củ, bó, miếng, g, kg...)"},
+                    "box2d": {
+                        "type": "ARRAY",
+                        "items": {"type": "INTEGER"},
+                        "description": "[ymin, xmin, ymax, xmax] normalized to 0-1000",
+                    },
                 },
-                "amount": {"type": "NUMBER", "description": "Số lượng ước tính dạng số"},
-                "unit": {"type": "STRING", "description": "Đơn vị tính (quả, củ, bó, miếng, g, kg...)"},
-                "box2d": {
-                    "type": "ARRAY",
-                    "items": {"type": "INTEGER"},
-                    "description": "[ymin, xmin, ymax, xmax] normalized to 0-1000",
-                },
-            },
-            "required": ["name", "confidence", "freshnessStatus", "isAnimalProduct", "isRedMeat", "quantity"]}},
-    },
-    "required": ["items"],
-}
+                # Gemini sinh theo propertyOrdering: visualCues đứng đầu để mô hình quan sát hình thái trước khi chốt tên
+                # (thinking_budget=0 nên đây là chỗ duy nhất để "suy luận").
+                "propertyOrdering": ["visualCues", "name", "confidence", "freshnessStatus", "foodGroup", "isAnimalProduct",
+                                     "isRedMeat", "quantity", "amount", "unit", "box2d"],
+                "required": ["visualCues", "name", "confidence", "freshnessStatus", "isAnimalProduct", "isRedMeat", "quantity"]}},
+        },
+        "required": ["items"],
+    }
+    item = schema["properties"]["items"]["items"]
+    if box_key != "box2d":
+        item["properties"][box_key] = item["properties"].pop("box2d")
+        item["propertyOrdering"] = [box_key if k == "box2d" else k for k in item["propertyOrdering"]]
+    return schema
+
+
+RESPONSE_SCHEMA: dict[str, Any] = build_response_schema()
 
 
 def validate_image(data: bytes, settings: Settings) -> ImageInfo:
@@ -134,9 +179,47 @@ def validate_image(data: bytes, settings: Settings) -> ImageInfo:
     return info
 
 
+# Gộp khung cùng tên khoanh trùng một vật (Gemini đôi khi trả 2–3 khung lệch nhau cho cùng một món).
+DUP_IOU = 0.5          # chồng lấn ≥ 50% → cùng vật
+DUP_CONTAINMENT = 0.8  # khung nhỏ nằm ≥ 80% trong khung lớn cùng tên → trùng (vd. "Cà chua" trong "Cà chua 4 quả")
+
+
+def _box_area(b: list[int]) -> int:
+    return max(0, b[2] - b[0]) * max(0, b[3] - b[1])
+
+
+def _box_inter(a: list[int], b: list[int]) -> int:
+    return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+
+
+def is_duplicate_box(a: list[int], b: list[int]) -> bool:
+    inter = _box_inter(a, b)
+    if inter == 0:
+        return False
+    union = _box_area(a) + _box_area(b) - inter
+    smaller = min(_box_area(a), _box_area(b))
+    return (union > 0 and inter / union >= DUP_IOU) or (smaller > 0 and inter / smaller >= DUP_CONTAINMENT)
+
+
+def merge_overlapping_same_name(items: list[DetectedIngredient]) -> list[DetectedIngredient]:
+    """Cùng tên + khung chồng lấn mạnh → giữ 1 mục (độ tin cậy cao nhất; hòa thì khung lớn hơn). Giữ thứ tự xuất hiện."""
+    kept: list[DetectedIngredient] = []
+    for det in items:
+        if det.box2d:
+            dup = next((k for k in kept if k.box2d and k.name.casefold() == det.name.casefold()
+                        and is_duplicate_box(k.box2d, det.box2d)), None)
+            if dup is not None:
+                better = (det.confidence, _box_area(det.box2d)) > (dup.confidence, _box_area(dup.box2d))
+                if better:
+                    kept[kept.index(dup)] = det
+                continue
+        kept.append(det)
+    return kept
+
+
 def normalize(data: dict[str, Any]) -> list[DetectedIngredient]:
     """Kiểm lại đầu ra mô hình: bỏ mục sai kiểu/thiếu trường, loại bỏ đồ phi thực phẩm, kẹp confidence về 0..1, gộp trùng tên."""
-    best: dict[str, DetectedIngredient] = {}
+    best: dict[tuple[str, tuple[int, ...] | None], DetectedIngredient] = {}
     for item in data.get("items") or []:
         if not isinstance(item, dict):
             continue
@@ -190,7 +273,7 @@ def normalize(data: dict[str, Any]) -> list[DetectedIngredient]:
             except (ValueError, TypeError):
                 box2d = None
 
-        name = name.strip()[:100]
+        name = unicodedata.normalize("NFC", name.strip())[:100]
         det = DetectedIngredient(
             name=name,
             confidence=round(min(1.0, max(0.0, float(conf))), 4),
@@ -203,10 +286,11 @@ def normalize(data: dict[str, Any]) -> list[DetectedIngredient]:
             unit=unit,
             box2d=box2d,
         )
-        key = name.casefold()
+        # Cùng tên nhưng ở các hộp bao khác nhau là các vật thể khác nhau → giữ riêng; chỉ gộp khi trùng tên và không có hộp.
+        key = (name.casefold(), tuple(box2d) if box2d else None)
         if key not in best or det.confidence > best[key].confidence:
             best[key] = det
-    return list(best.values())[:MAX_ITEMS]
+    return merge_overlapping_same_name(list(best.values()))[:MAX_ITEMS]
 
 
 class IngredientDetector:
@@ -216,9 +300,15 @@ class IngredientDetector:
 
     async def detect(self, data: bytes) -> DetectIngredientsResponse:
         info = validate_image(data, self._s)
-        msg = Message(role="user", text=USER_TEXT, images=(ImagePart(data=data, mime_type=info.mime_type),))
-        gen = await self._llm.generate(SYSTEM_INSTRUCTION, [msg], temperature=min(0.4, self._s.vision_temperature),
-                                       max_output_tokens=self._s.vision_max_output_tokens, json_schema=RESPONSE_SCHEMA)
+        box_key = self._s.vision_box_key if self._s.vision_box_key in ("box2d", "box_2d") else "box2d"
+        system = SYSTEM_INSTRUCTION.replace("box2d", box_key)
+        user_text = USER_TEXT.replace("box2d", box_key)
+        msg = Message(role="user", text=user_text, images=(ImagePart(data=data, mime_type=info.mime_type),))
+        gen = await self._llm.generate(system, [msg], temperature=min(0.4, self._s.vision_temperature),
+                                       max_output_tokens=self._s.vision_max_output_tokens,
+                                       json_schema=RESPONSE_SCHEMA if box_key == "box2d" else build_response_schema(box_key),
+                                       timeout=self._s.vision_timeout_seconds or None,
+                                       thinking_budget=self._s.vision_thinking_budget)
         parsed = parse_json_object(gen.text)
         if parsed is None:
             # Hỗ trợ trường hợp Gemini trả mảng trực tiếp [ ... ]
@@ -229,7 +319,6 @@ class IngredientDetector:
             except Exception:
                 pass
         if parsed is None:
-            import re
             match = re.search(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```", gen.text, re.IGNORECASE)
             if match:
                 try:
@@ -241,7 +330,7 @@ class IngredientDetector:
         if parsed is None:
             log.error("Gemini vision JSON parse failed. completion_tokens=%s, raw text: %r", gen.completion_tokens, gen.text[:500])
             raise gemini_error("Gemini không trả JSON nhận diện hợp lệ.")
-        prompt = (f"[SYSTEM]\n{SYSTEM_INSTRUCTION}\n\n[USER]\n{USER_TEXT}\n"
+        prompt = (f"[SYSTEM]\n{system}\n\n[USER]\n{user_text}\n"
                   f"[IMAGE {info.mime_type} {info.width}x{info.height} {len(data)} bytes]")
         return DetectIngredientsResponse(
             items=normalize(parsed),

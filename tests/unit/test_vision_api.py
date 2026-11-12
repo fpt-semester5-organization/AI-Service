@@ -357,3 +357,116 @@ def test_prompt_strictness_for_food_ingredients_and_electronics():
     assert "chuột máy tính" in SYSTEM_INSTRUCTION.lower()
     assert "items: []" in SYSTEM_INSTRUCTION
     assert "đồ điện tử" in USER_TEXT.lower()
+
+
+def test_prompt_has_bell_pepper_vs_tomato_morphology_rule():
+    from app.services.vision.ingredient_detector import SYSTEM_INSTRUCTION, USER_TEXT
+    text = SYSTEM_INSTRUCTION.lower()
+    assert "ớt chuông" in text and "cà chua" in text
+    assert "múi dọc" in text and "hình cầu" in text.replace("hình cầu hoặc", "hình cầu")
+    assert "không chỉ dựa vào màu" in text
+    assert "ớt chuông" in USER_TEXT.lower()
+
+
+def test_detect_falls_back_to_bare_json_array_reply():
+    """Gemini trả mảng JSON trần thay vì object → vẫn đọc được (trước đây thiếu `import json` nên nhánh này hỏng âm thầm)."""
+    import asyncio
+
+    from app.services.vision.ingredient_detector import IngredientDetector
+    from tests.fakes import FakeLLM
+    from tests.image_helpers import png
+
+    reply = '[{"name": "Ớt chuông", "confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": false, "isRedMeat": false, "quantity": "2 quả"}]'
+    det = IngredientDetector(Settings(gemini_api_key="k", qdrant_url="http://x"), FakeLLM(reply))
+    res = asyncio.run(det.detect(png(800, 600)))
+    assert [i.name for i in res.items] == ["Ớt chuông"]
+
+
+def test_schema_forces_visual_cues_before_name():
+    """thinking_budget=0 → mô hình phải ghi quan sát hình thái (visualCues) trước khi chốt tên."""
+    item = RESPONSE_SCHEMA["properties"]["items"]["items"]
+    assert item["propertyOrdering"][:2] == ["visualCues", "name"]
+    assert "visualCues" in item["required"]
+    assert set(item["propertyOrdering"]) == set(item["properties"])
+
+
+def test_prompt_covers_colored_bell_peppers_and_red_cabbage():
+    text = SYSTEM_INSTRUCTION.lower()
+    assert "vàng" in text and "cam" in text and "bắp cải tím" in text
+    assert "mỗi box2d chỉ chứa một loại" in text
+
+
+def test_normalize_keeps_same_name_in_different_boxes():
+    base = {"confidence": 0.9, "freshnessStatus": "FRESH", "isAnimalProduct": False, "isRedMeat": False}
+    out = normalize({"items": [
+        {**base, "name": "Cà chua", "box2d": [100, 100, 200, 200]},
+        {**base, "name": "Cà chua", "box2d": [500, 500, 600, 600]},
+        {**base, "name": "Cà chua", "box2d": [100, 100, 200, 200], "confidence": 0.5},  # trùng hộp → gộp
+        {**base, "name": "Cà chua"},  # dạng Unicode NFD vẫn được chuẩn hóa về NFC
+    ]})
+    assert [(i.name, i.box2d) for i in out] == [
+        ("Cà chua", [100, 100, 200, 200]), ("Cà chua", [500, 500, 600, 600]), ("Cà chua", None)]
+
+
+def test_detect_uses_dedicated_vision_timeout():
+    """Ảnh nhiều món mất 20–50s → nhận diện dùng VISION_TIMEOUT_SECONDS, không dùng timeout 25s chung của chat."""
+    import asyncio
+
+    from app.core.gemini_client import Generation
+    from app.services.vision.ingredient_detector import IngredientDetector
+
+    seen = {}
+
+    class CaptureLLM:
+        async def generate(self, system, messages, **kwargs):
+            seen.update(kwargs)
+            return Generation(text='{"items": []}', model="m", prompt_tokens=1, completion_tokens=1,
+                              latency_ms=1, temperature=0.2)
+
+    s = Settings(vision_timeout_seconds=55, gemini_timeout_seconds=25)
+    asyncio.run(IngredientDetector(s, CaptureLLM()).detect(jpeg(800, 600)))
+    assert seen["timeout"] == 55
+
+
+def test_normalize_merges_overlapping_boxes_of_same_name():
+    """Lỗi thật 13/11: cùng cuộn phô mai dê được khoanh 3 lần với khung lệch nhau → chỉ giữ 1."""
+    base = {"freshnessStatus": "FRESH", "isAnimalProduct": True, "isRedMeat": False}
+    out = normalize({"items": [
+        {**base, "name": "Phô mai", "confidence": 0.9, "box2d": [800, 845, 910, 930]},
+        {**base, "name": "Phô mai", "confidence": 0.92, "box2d": [805, 850, 905, 935]},   # IoU cao → trùng, tin cậy hơn
+        {**base, "name": "Phô mai", "confidence": 0.9, "box2d": [820, 860, 900, 920]},    # nằm trọn trong khung trên → trùng
+        {**base, "name": "Phô mai", "confidence": 0.9, "box2d": [750, 660, 860, 760]},    # miếng phô mai khác chỗ → giữ
+        {**base, "name": "Xúc xích", "confidence": 0.9, "box2d": [805, 850, 905, 935]},   # khác tên, cùng chỗ → giữ
+    ]})
+    assert [(i.name, i.confidence, i.box2d) for i in out] == [
+        ("Phô mai", 0.92, [805, 850, 905, 935]),
+        ("Phô mai", 0.9, [750, 660, 860, 760]),
+        ("Xúc xích", 0.9, [805, 850, 905, 935]),
+    ]
+
+
+def test_box_key_option_renames_schema_field_but_contract_stays_box2d(settings, store):
+    """Bước 4: vision_box_key="box_2d" đổi tên trường trong schema/prompt; đầu ra Backend vẫn là box2d."""
+    import asyncio
+
+    from app.core.gemini_client import Generation
+    from app.services.vision.ingredient_detector import IngredientDetector, build_response_schema
+
+    seen = {}
+
+    class CaptureLLM:
+        async def generate(self, system, messages, **kwargs):
+            seen.update(kwargs, system=system)
+            return Generation(text='{"items": [{"name": "Cà chua", "confidence": 0.9, "freshnessStatus": "FRESH", '
+                                   '"isAnimalProduct": false, "isRedMeat": false, "quantity": "1 quả", "box_2d": [1, 2, 3, 4]}]}',
+                              model="m", prompt_tokens=1, completion_tokens=1, latency_ms=1, temperature=0.2)
+
+    s = Settings(vision_box_key="box_2d", vision_thinking_budget=1024)
+    res = asyncio.run(IngredientDetector(s, CaptureLLM()).detect(jpeg(800, 600)))
+    item = seen["json_schema"]["properties"]["items"]["items"]
+    assert "box_2d" in item["properties"] and "box2d" not in item["properties"]
+    assert item["propertyOrdering"][-1] == "box_2d"
+    assert "box_2d" in seen["system"] and "box2d" not in seen["system"]
+    assert seen["thinking_budget"] == 1024
+    assert res.items[0].box2d == [1, 2, 3, 4]
+    assert build_response_schema() == RESPONSE_SCHEMA
