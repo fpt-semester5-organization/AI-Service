@@ -1,0 +1,567 @@
+{
+ "image": "tu_lanh_nhieu_ngan.jpg",
+ "note": "Tủ nhiều ngăn, ảnh 1200x676, đồ xếp dày; bỏ qua chai nước lọc và nồi.",
+ "items": [
+  {
+   "name": "Xà lách",
+   "aliases": [
+    "Rau xà lách",
+    "Rau xanh",
+    "Xà lách lụa",
+    "Cải"
+   ],
+   "box_2d": [
+    30,
+    25,
+    240,
+    200
+   ]
+  },
+  {
+   "name": "Trứng",
+   "aliases": [
+    "Trứng gà"
+   ],
+   "box_2d": [
+    150,
+    0,
+    230,
+    200
+   ]
+  },
+  {
+   "name": "Cam",
+   "aliases": [],
+   "box_2d": [
+    85,
+    255,
+    185,
+    315
+   ],
+   "note": "nửa quả cam"
+  },
+  {
+   "name": "Cam",
+   "aliases": [
+    "Chanh vàng",
+    "Bưởi"
+   ],
+   "box_2d": [
+    65,
+    315,
+    180,
+    380
+   ]
+  },
+  {
+   "name": "Cam",
+   "aliases": [],
+   "box_2d": [
+    110,
+    380,
+    180,
+    420
+   ],
+   "note": "lát cam"
+  },
+  {
+   "name": "Dâu tây",
+   "aliases": [],
+   "box_2d": [
+    45,
+    415,
+    185,
+    510
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng"
+   ],
+   "box_2d": [
+    110,
+    515,
+    185,
+    560
+   ]
+  },
+  {
+   "name": "Táo",
+   "aliases": [
+    "Táo đỏ"
+   ],
+   "box_2d": [
+    95,
+    555,
+    180,
+    600
+   ]
+  },
+  {
+   "name": "Nước ép",
+   "aliases": [
+    "Nước ép cà chua",
+    "Nước trái cây"
+   ],
+   "box_2d": [
+    55,
+    575,
+    115,
+    615
+   ]
+  },
+  {
+   "name": "Táo",
+   "aliases": [
+    "Táo đỏ"
+   ],
+   "box_2d": [
+    60,
+    920,
+    180,
+    1000
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng"
+   ],
+   "box_2d": [
+    170,
+    785,
+    225,
+    830
+   ]
+  },
+  {
+   "name": "Trứng",
+   "aliases": [
+    "Trứng gà"
+   ],
+   "box_2d": [
+    165,
+    830,
+    215,
+    940
+   ]
+  },
+  {
+   "name": "Ớt chuông xanh",
+   "aliases": [
+    "Ớt chuông"
+   ],
+   "box_2d": [
+    230,
+    280,
+    375,
+    370
+   ]
+  },
+  {
+   "name": "Cà chua",
+   "aliases": [],
+   "box_2d": [
+    305,
+    335,
+    405,
+    415
+   ]
+  },
+  {
+   "name": "Bắp cải",
+   "aliases": [
+    "Cải thảo",
+    "Xà lách"
+   ],
+   "box_2d": [
+    280,
+    400,
+    370,
+    450
+   ]
+  },
+  {
+   "name": "Cà tím",
+   "aliases": [],
+   "box_2d": [
+    310,
+    420,
+    400,
+    495
+   ]
+  },
+  {
+   "name": "Tỏi",
+   "aliases": [],
+   "box_2d": [
+    290,
+    485,
+    375,
+    545
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng"
+   ],
+   "box_2d": [
+    365,
+    505,
+    400,
+    550
+   ],
+   "note": "lát chanh"
+  },
+  {
+   "name": "Cà chua bi",
+   "aliases": [
+    "Cà chua"
+   ],
+   "box_2d": [
+    345,
+    550,
+    400,
+    615
+   ],
+   "note": "hộp nhỏ màu đỏ"
+  },
+  {
+   "name": "Xà lách",
+   "aliases": [
+    "Rau xà lách",
+    "Rau xanh",
+    "Xà lách lụa"
+   ],
+   "box_2d": [
+    230,
+    545,
+    345,
+    650
+   ]
+  },
+  {
+   "name": "Cà chua",
+   "aliases": [],
+   "box_2d": [
+    255,
+    650,
+    310,
+    700
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng"
+   ],
+   "box_2d": [
+    250,
+    700,
+    305,
+    735
+   ]
+  },
+  {
+   "name": "Hành lá",
+   "aliases": [
+    "Hành"
+   ],
+   "box_2d": [
+    360,
+    600,
+    400,
+    755
+   ]
+  },
+  {
+   "name": "Bắp cải",
+   "aliases": [
+    "Cải thảo",
+    "Xà lách",
+    "Xà lách Romaine"
+   ],
+   "box_2d": [
+    405,
+    85,
+    595,
+    240
+   ]
+  },
+  {
+   "name": "Sữa",
+   "aliases": [],
+   "box_2d": [
+    405,
+    0,
+    600,
+    85
+   ]
+  },
+  {
+   "name": "Xà lách",
+   "aliases": [
+    "Rau xà lách",
+    "Rau xanh",
+    "Xà lách lụa"
+   ],
+   "box_2d": [
+    425,
+    385,
+    535,
+    470
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng"
+   ],
+   "box_2d": [
+    465,
+    465,
+    535,
+    505
+   ]
+  },
+  {
+   "name": "Ớt chuông đỏ",
+   "aliases": [
+    "Ớt chuông"
+   ],
+   "box_2d": [
+    445,
+    505,
+    540,
+    565
+   ]
+  },
+  {
+   "name": "Bơ",
+   "aliases": [
+    "Quả bơ"
+   ],
+   "box_2d": [
+    535,
+    385,
+    620,
+    450
+   ]
+  },
+  {
+   "name": "Bông cải xanh",
+   "aliases": [
+    "Súp lơ xanh",
+    "Bông cải"
+   ],
+   "box_2d": [
+    505,
+    555,
+    625,
+    635
+   ]
+  },
+  {
+   "name": "Rau thơm",
+   "aliases": [
+    "Hương thảo",
+    "Thì là",
+    "Rau mùi"
+   ],
+   "box_2d": [
+    425,
+    650,
+    545,
+    715
+   ]
+  },
+  {
+   "name": "Cà chua bi",
+   "aliases": [
+    "Cà chua"
+   ],
+   "box_2d": [
+    535,
+    650,
+    580,
+    730
+   ]
+  },
+  {
+   "name": "Rau mùi tây",
+   "aliases": [
+    "Rau mùi",
+    "Ngò",
+    "Mùi tây",
+    "Rau thơm"
+   ],
+   "box_2d": [
+    315,
+    770,
+    600,
+    1000
+   ]
+  },
+  {
+   "name": "Ớt chuông đỏ",
+   "aliases": [
+    "Ớt chuông"
+   ],
+   "box_2d": [
+    495,
+    905,
+    610,
+    1000
+   ]
+  },
+  {
+   "name": "Thịt",
+   "aliases": [
+    "Xúc xích",
+    "Thịt heo",
+    "Thịt bò"
+   ],
+   "box_2d": [
+    685,
+    555,
+    745,
+    745
+   ],
+   "note": "khay trong ngăn kéo, nhìn mờ"
+  },
+  {
+   "name": "Cà rốt",
+   "aliases": [],
+   "box_2d": [
+    860,
+    340,
+    945,
+    415
+   ]
+  },
+  {
+   "name": "Táo",
+   "aliases": [
+    "Táo xanh"
+   ],
+   "box_2d": [
+    800,
+    383,
+    880,
+    432
+   ]
+  },
+  {
+   "name": "Cần tây",
+   "aliases": [
+    "Rau cần"
+   ],
+   "box_2d": [
+    820,
+    415,
+    945,
+    495
+   ]
+  },
+  {
+   "name": "Chanh",
+   "aliases": [
+    "Chanh vàng",
+    "Khoai tây"
+   ],
+   "box_2d": [
+    815,
+    520,
+    945,
+    615
+   ],
+   "note": "quả vàng trong hộp, khó xác định"
+  },
+  {
+   "name": "Dưa chuột",
+   "aliases": [
+    "Dưa leo"
+   ],
+   "box_2d": [
+    810,
+    600,
+    945,
+    745
+   ]
+  },
+  {
+   "name": "Cà tím",
+   "aliases": [],
+   "box_2d": [
+    870,
+    620,
+    945,
+    735
+   ]
+  },
+  {
+   "name": "Nước ép",
+   "aliases": [
+    "Nước cam",
+    "Nước ép cam"
+   ],
+   "box_2d": [
+    715,
+    90,
+    960,
+    160
+   ]
+  },
+  {
+   "name": "Nước ép",
+   "aliases": [
+    "Nước ép cà chua"
+   ],
+   "box_2d": [
+    690,
+    150,
+    960,
+    205
+   ]
+  },
+  {
+   "name": "Nước ép",
+   "aliases": [
+    "Nước cam",
+    "Nước ép cam"
+   ],
+   "box_2d": [
+    700,
+    795,
+    960,
+    850
+   ]
+  },
+  {
+   "name": "Sữa",
+   "aliases": [],
+   "box_2d": [
+    740,
+    820,
+    975,
+    900
+   ]
+  },
+  {
+   "name": "Xà lách",
+   "aliases": [
+    "Rau xà lách",
+    "Rau xanh",
+    "Xà lách lụa"
+   ],
+   "box_2d": [
+    920,
+    0,
+    1000,
+    130
+   ]
+  }
+ ]
+}
