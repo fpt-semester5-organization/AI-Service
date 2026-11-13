@@ -14,10 +14,18 @@ class MealGenerateRequest(CamelModel):
     # Backend đã lọc trước theo trường phái + dị ứng; AI service chỉ được chọn trong danh sách này.
     candidate_recipes: list[CandidateRecipe] = Field(min_length=1, max_length=500)
     fridge_ingredients: list[str] = Field(default_factory=list, max_length=100)
-    custom_instructions: str | None = Field(default=None, max_length=200)   # BR-USR-MEAL-CI-01
+    custom_instructions: str | None = Field(default=None, max_length=500)   # BR-USR-MEAL-CI-01
     duration_days: int = Field(default=7, ge=1, le=30)
     start_date: str | None = None
     attempt: int = Field(default=1, ge=1, le=3)
+    # Tiêu chí cá nhân hóa dinh dưỡng từ Backend
+    health_goal: str | None = None
+    region_preference: str | None = None
+    budget_tier: str | None = None
+    dietary_school_code: str | None = None
+    dietary_school_name: str | None = None
+    requires_allium_free: bool | None = None
+    target_weight_kg: float | None = None
 
 
 class MealSlot(CamelModel):
@@ -57,10 +65,15 @@ class SwapMealByNoteRequest(CamelModel):
     current_recipe_id: int = 0
     swap_note: str = Field(min_length=1, max_length=1000)
     dietary_school_code: str = "VEGAN"
+    dietary_school_name: str | None = None
     meal_type: str = "LUNCH"
     target_calories: float | int = Field(default=0.0, ge=0, le=10000)
     excluded_recipe_ids: list[int] = Field(default_factory=list)
     candidate_recipes: list[SwapCandidateRecipe] = Field(min_length=1, max_length=500)
+    health_goal: str | None = None
+    region_preference: str | None = None
+    budget_tier: str | None = None
+    requires_allium_free: bool | None = None
 
 
 class SwapMealByNoteResponse(CamelModel):
