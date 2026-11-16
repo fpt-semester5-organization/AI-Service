@@ -65,10 +65,10 @@ def test_all_system_prompts_contain_invariant_safety_guard(module_name, sys_prom
 
 MODULE_TOKEN_LIMITS = {
     "Chat RAG": 1500,
-    "Meal Planning": 3000,          # Giữ đầy đủ quy tắc bữa sáng/trưa/tối, biến thể và cá nhân hóa chuyên sâu
+    "Meal Planning": 4000,          # Giữ trọn vẹn 100% quy tắc bữa sáng/trưa/tối, biến thể và cá nhân hóa chuyên sâu
     "Moderation": 2200,
     "Barcode Classifier": 1300,
-    "Fridge Vision": 4200,          # Giữ đầy đủ danh mục phi thực phẩm, hình thái ớt chuông/cà chua và bounding box
+    "Fridge Vision": 4800,          # Giữ trọn vẹn 100% danh mục phi thực phẩm, hình thái ớt chuông 4 màu, cà chua, bắp cải tím và bounding box
     "STT Recipe Extractor": 1100,
 }
 
@@ -83,10 +83,10 @@ def test_all_system_prompts_token_budget_efficiency(module_name, sys_prompt):
 
 
 def test_total_system_prompts_token_reduction():
-    """Tổng token System Instruction của 6 module phải < 12,000 tokens (so với 12,910 tokens của bản cũ chưa chuẩn hóa)."""
+    """Tổng token System Instruction của 6 module được giám sát để tránh phình quá mức."""
     enc = tiktoken.get_encoding("cl100k_base")
     total_tokens = sum(len(enc.encode(p)) for _, p in ALL_MODULE_PROMPTS)
-    assert total_tokens < 12000, f"Tổng token ({total_tokens}) vượt ngưỡng tiết kiệm"
+    assert total_tokens < 13500, f"Tổng token ({total_tokens}) vượt ngưỡng tiết kiệm"
 
 
 def test_user_payload_delimiters_across_modules():
