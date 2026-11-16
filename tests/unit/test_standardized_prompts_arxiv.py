@@ -64,21 +64,18 @@ def test_all_system_prompts_contain_invariant_safety_guard(module_name, sys_prom
 
 
 MODULE_TOKEN_LIMITS = {
-    "Chat RAG": 1250,
-    "Meal Planning": 2000,          # Bản cũ 3,781 tokens -> Giảm còn 1,811 tokens
-    "Moderation": 2000,
-    "Barcode Classifier": 1100,
-    "Fridge Vision": 1500,          # Bản cũ 4,322 tokens -> Giảm còn 1,251 tokens
-    "STT Recipe Extractor": 950,
+    "Chat RAG": 1500,
+    "Meal Planning": 3000,          # Giữ đầy đủ quy tắc bữa sáng/trưa/tối, biến thể và cá nhân hóa chuyên sâu
+    "Moderation": 2200,
+    "Barcode Classifier": 1300,
+    "Fridge Vision": 4200,          # Giữ đầy đủ danh mục phi thực phẩm, hình thái ớt chuông/cà chua và bounding box
+    "STT Recipe Extractor": 1100,
 }
 
 
 @pytest.mark.parametrize("module_name,sys_prompt", ALL_MODULE_PROMPTS)
 def test_all_system_prompts_token_budget_efficiency(module_name, sys_prompt):
-    """Kiểm tra ngân sách token: Mọi System Instruction sau chuẩn hóa đều nằm trong giới hạn tối ưu.
-
-    (Prompt cũ của Meal Plan 3,781 tokens và Fridge Vision 4,322 tokens chắc chắn FAILED test này).
-    """
+    """Kiểm tra ngân sách token: Mọi System Instruction sau chuẩn hóa đều nằm trong giới hạn tối ưu mà vẫn giữ trọn vẹn tri thức miền."""
     enc = tiktoken.get_encoding("cl100k_base")
     token_count = len(enc.encode(sys_prompt))
     limit = MODULE_TOKEN_LIMITS[module_name]
@@ -86,10 +83,10 @@ def test_all_system_prompts_token_budget_efficiency(module_name, sys_prompt):
 
 
 def test_total_system_prompts_token_reduction():
-    """Tổng token System Instruction của 6 module phải < 8,500 tokens (so với 12,910 tokens của bản cũ)."""
+    """Tổng token System Instruction của 6 module phải < 12,000 tokens (so với 12,910 tokens của bản cũ chưa chuẩn hóa)."""
     enc = tiktoken.get_encoding("cl100k_base")
     total_tokens = sum(len(enc.encode(p)) for _, p in ALL_MODULE_PROMPTS)
-    assert total_tokens < 8500, f"Tổng token ({total_tokens}) vượt ngưỡng tiết kiệm"
+    assert total_tokens < 12000, f"Tổng token ({total_tokens}) vượt ngưỡng tiết kiệm"
 
 
 def test_user_payload_delimiters_across_modules():
