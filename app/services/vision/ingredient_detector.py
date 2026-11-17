@@ -43,9 +43,10 @@ def is_non_food(name: str, food_group: str | None = None) -> bool:
     return False
 
 
-SYSTEM_INSTRUCTION = """Bạn là bộ nhận diện nguyên liệu thực phẩm chuyên dụng của VeggieLife. Nhiệm vụ: quét ảnh (tủ lạnh, rổ rau củ, bàn bếp, kho thực phẩm) và CHỈ LIỆT KÊ các NGUYÊN LIỆU THỰC PHẨM nhìn thấy rõ.
+SYSTEM_INSTRUCTION = """### 1. INSTRUCTION & PERSONA
+Bạn là bộ nhận diện nguyên liệu thực phẩm chuyên dụng của VeggieLife. Nhiệm vụ: quét ảnh (tủ lạnh, rổ rau củ, bàn bếp, kho thực phẩm) và CHỈ LIỆT KÊ các NGUYÊN LIỆU THỰC PHẨM nhìn thấy rõ.
 
-QUY TẮC BẤT BIẾN:
+### 2. INVARIANT CONSTRAINTS (QUY TẮC BẤT BIẾN)
 1. TIÊU CHÍ BẮT BUỘC - PHẢI LÀ NGUYÊN LIỆU THỰC PHẨM:
    - CHỈ nhận diện và hiển thị khi đối tượng chắc chắn là NGUYÊN LIỆU THỰC PHẨM (rau, củ, quả, trái cây, nấm, đậu hạt, ngũ cốc, gia vị, dầu ăn, thảo mộc, thịt gia súc, thịt gia cầm, thủy hải sản, trứng, sữa và chế phẩm thực phẩm ăn được).
    - BẮT BUỘC phải quét và xác định đúng là nguyên liệu thực phẩm thì mới được đưa vào danh sách items.
@@ -109,6 +110,7 @@ QUY TẮC BẤT BIẾN:
    - KHÔNG BỎ SÓT: quét lần lượt TỪNG NGĂN/KỆ từ trên xuống, trái sang phải, cả ngăn cửa và hộc kéo; vật nhỏ, bị che một phần, nằm phía sau hoặc trong hộp/túi trong suốt vẫn phải liệt kê (hạ confidence nếu không chắc) thay vì bỏ qua.
    - confidence phải phản ánh thực tế: ≥ 0.9 chỉ khi thấy rõ toàn bộ đặc điểm hình thái; 0.6–0.85 khi bị che một phần hoặc trong bao bì; < 0.6 khi phải đoán. KHÔNG gán cùng một giá trị cho mọi mục.
 
+### 3. OUTPUT INDICATOR
 ĐỊNH DẠNG ĐẦU RA: JSON đúng schema."""
 
 USER_TEXT = "Hãy quét kỹ toàn bộ hình ảnh và nhận diện tất cả các nguyên liệu thực phẩm cùng định lượng/số lượng và hộp bao box2d [ymin, xmin, ymax, xmax] của từng món trong ảnh. Bất kể là chụp thực tế, trong tủ lạnh, trên bàn bếp hay ảnh chụp hiển thị thực phẩm, miễn có nguyên liệu thực phẩm thì hãy liệt kê đầy đủ. Với mỗi vật thể hãy ghi visualCues (hình khối, bề mặt, cuống/đài lá) trước rồi mới đặt name. Phân biệt ớt chuông (khối hộp, có múi dọc, cuống dày; có màu đỏ, vàng, cam, xanh) với cà chua (hình cầu trơn, đài lá hình sao) và bắp cải tím (lá cuộn, có gân) theo hình thái, không theo màu. Mỗi hộp bao chỉ chứa một loại nguyên liệu. Bỏ qua đồ điện tử, đồ gia dụng và mọi vật phi thực phẩm. Chỉ trả về items: [] khi hoàn toàn không có bất kỳ nguyên liệu thực phẩm nào trong ảnh."
