@@ -1,0 +1,28 @@
+# VM veggielife-core-vm: ai-service + Qdrant (D118). Chỉ nghe trên IP nội bộ của VM; Qdrant không mở cổng ra ngoài.
+# stt-service KHÔNG chạy ở đây: nó ở Cloud Run (scripts/deploy_stt.sh).
+#   cp deploy/.env.vm.example .env   # điền INTERNAL_API_KEY rồi:
+#   docker compose -f deploy/docker-compose.vm.yml up -d --build
+# Gemini/Vertex AI dùng service account GẮN VÀO VM (Application Default Credentials), không cần tệp JSON khóa:
+#   VM phải có quyền roles/aiplatform.user và scope cloud-platform.
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    restart: unless-stopped
+    volumes: [ qdrantdata:/qdrant/storage ]
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && head -n1 <&3 | grep -q 200'" ]
+      interval: 10s
+      retries: 12
+  ai-service:
+    build: ..
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      PORT: "8080"
+    volumes:
+      - ../knowledge:/app/knowledge:ro
+    depends_on: { qdrant: { condition: service_healthy } }
+    ports: [ "${VM_INTERNAL_IP:-10.148.0.2}:8081:8080" ] # chỉ Backend (qua VPC) gọi vào
+volumes:
+  qdrantdata: {}

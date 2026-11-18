@@ -29,8 +29,10 @@ class ContentModerator:
     async def check(self, req: ModerationCheckRequest) -> ModerationCheckResponse:
         images = await fetch_images(req.image_urls, self._s, self._http)
         prompt = build_prompt(req, images)
+        timeout = self._s.vision_timeout_seconds if images else self._s.gemini_timeout_seconds
         gen = await self._llm.generate(prompt.system, prompt.messages, temperature=min(0.4, self._s.moderation_temperature),
-                                       max_output_tokens=self._s.moderation_max_output_tokens, json_schema=RESPONSE_SCHEMA)
+                                       max_output_tokens=self._s.moderation_max_output_tokens, json_schema=RESPONSE_SCHEMA,
+                                       timeout=timeout)
         data = parse_json_object(gen.text)
         if data is None:
             raise gemini_error("Gemini không trả JSON kiểm duyệt hợp lệ.")

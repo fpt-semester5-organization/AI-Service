@@ -40,6 +40,32 @@ def _make_answerer(reply_text: str = '{"answer": "Tư vấn dinh dưỡng an to�
     return ChatAnswerer(settings, llm, retriever)
 
 
+class _StubRetriever:
+    """Trả sẵn một đoạn tri thức để kiểm nhánh có ngữ cảnh (kho rỗng sẽ bị từ chối cố định)."""
+
+    def __init__(self, hits: list[Hit]):
+        self._hits = hits
+
+    async def search(self, question: str) -> list[Hit]:
+        return self._hits
+
+
+@pytest.mark.asyncio
+async def test_rag_strict_no_context_refuses_without_calling_gemini():
+    """RAG chặt: kho không có đoạn nào đạt ngưỡng → câu từ chối cố định bắt đầu bằng NO_CONTEXT_PHRASE."""
+    answerer = _make_answerer(reply_text='{"answer": "Kiến thức ngoài kho.", "recommendedRecipeIds": []}')
+    res = await answerer.answer(ChatAnswerRequest(question="Ăn chay có cần bổ sung vitamin B12 không?"))
+    assert res.answer.startswith(NO_CONTEXT_PHRASE)
+    assert res.rag_used is False and res.sources == []
+    assert answerer._llm.generate_calls == []
+
+
+def test_rag_strict_rules_present_in_system_instruction():
+    assert "CHỈ trả lời dựa trên nội dung trong \"NGỮ CẢNH TRI THỨC\"" in SYSTEM_INSTRUCTION
+    assert NO_CONTEXT_PHRASE in SYSTEM_INSTRUCTION
+    assert "KHÔNG NÓI 'KHÔNG CÓ'" not in SYSTEM_INSTRUCTION
+
+
 # ==============================================================================
 # BỘ 10 CÂU TẤN CÔNG PROMPT INJECTION & VƯỢT RÀO AN TOÀN (SEC-15)
 # ==============================================================================
@@ -160,6 +186,8 @@ async def test_sec15_candidate_recipes_filter_prevents_unauthorized_recipe_injec
     # Giả lập LLM bị lừa trả về recipeId=999 (món chứa đậu phộng mà kẻ tấn công yêu cầu)
     malicious_model_reply = '{"answer": "Đây là món bơ đậu phộng [S1].", "recommendedRecipeIds": [999, 101]}'
     answerer = _make_answerer(reply_text=malicious_model_reply)
+    answerer._retriever = _StubRetriever([Hit(source_type="RECIPE", source_id="101", title="Canh nấm",
+                                              text="Canh nấm nấu nhanh.", score=0.9, chunk_index=0)])
 
     # Backend chỉ đưa vào recipeId=101 (Canh nấm an toàn)
     safe_candidates = [CandidateRecipe(recipe_id=101, title="Canh nấm", cook_time_minutes=15)]

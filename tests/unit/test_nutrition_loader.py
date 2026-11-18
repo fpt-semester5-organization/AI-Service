@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.services.rag.chunker import Chunker
@@ -80,3 +81,19 @@ async def test_stale_not_deleted_when_some_file_failed(tmp_path):
     (tmp_path / "02-b.md").write_text("hỏng", encoding="utf-8")  # không có front-matter
     r = await reindex_nutrition(tmp_path, ix, store)
     assert r.failed and await store.list_source_ids("NUTRITION_DOC") == {"1", "2"}
+
+
+async def test_reindex_keeps_uploaded_docs_and_hidden_state(tmp_path):
+    """Tài liệu Admin tải lên (sourceId DOC_...) không bị xóa khi reindex; tài liệu đã ẩn vẫn ẩn sau khi nạp lại."""
+    from app.services.rag.types import Chunk
+    llm, store = FakeLLM(), InMemoryStore()
+    ix = Indexer(Chunker(llm.count_tokens), Embedder(llm), store)
+    write(tmp_path, "01-a.md")
+    await store.upsert_source("NUTRITION_DOC", "DOC_20261112_abc", "Sách tải lên", [Chunk(0, "nội dung", 2)], [[1.0]],
+                              datetime.now(timezone.utc))
+    await reindex_nutrition(tmp_path, ix, store)
+    await store.set_active("NUTRITION_DOC", ["1"], False)
+    await reindex_nutrition(tmp_path, ix, store)
+    assert await store.list_source_ids("NUTRITION_DOC") == {"1", "DOC_20261112_abc"}
+    assert (await store.stats())[1]["NUTRITION_DOC"] == 1  # chỉ còn tài liệu tải lên đang dùng
+    assert await store.inactive_count() >= 1

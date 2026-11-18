@@ -76,11 +76,12 @@ class InMemoryStore:
 
     async def upsert_source(self, source_type, source_id, title, chunks: list[Chunk], vectors, updated_at: datetime):
         self._check()
+        hidden = any(k[:2] == (source_type, source_id) and p.get("active") is False for k, (_, p) in self.points.items())
         for k in [k for k in self.points if k[:2] == (source_type, source_id) and k[2] >= len(chunks)]:
             del self.points[k]
         for c, v in zip(chunks, vectors):
             self.points[(source_type, source_id, c.index)] = (v, {
-                "title": title, "text": c.text})
+                "title": title, "text": c.text, **({"active": False} if hidden else {})})
 
     async def delete_source(self, source_type, source_id) -> int:
         self._check()
@@ -89,10 +90,12 @@ class InMemoryStore:
             del self.points[k]
         return len(ks)
 
-    async def search(self, vector, top_k, min_score) -> list[Hit]:
+    async def search(self, vector, top_k, min_score, source_types=None) -> list[Hit]:
         self._check()
         scored = []
         for (st, sid, idx), (v, p) in self.points.items():
+            if p.get("active") is False or (source_types and st not in source_types):
+                continue
             s = sum(a * b for a, b in zip(vector, v))
             if s >= min_score:
                 scored.append(Hit(st, sid, p["title"], p["text"], s, idx))
@@ -102,7 +105,21 @@ class InMemoryStore:
         self._check()
         return {k[1] for k in self.points if k[0] == source_type}
 
+    async def set_active(self, source_type, source_ids, active) -> int:
+        self._check()
+        n = 0
+        for k, (_, p) in self.points.items():
+            if k[0] == source_type and k[1] in source_ids:
+                p["active"] = active
+                n += 1
+        return n
+
     async def stats(self):
         self._check()
-        by = {t: sum(1 for k in self.points if k[0] == t) for t in SOURCE_TYPES}
+        by = {t: sum(1 for k, (_, p) in self.points.items() if k[0] == t and p.get("active") is not False)
+              for t in SOURCE_TYPES}
         return sum(by.values()), by
+
+    async def inactive_count(self) -> int:
+        self._check()
+        return sum(1 for _, p in self.points.values() if p.get("active") is False)

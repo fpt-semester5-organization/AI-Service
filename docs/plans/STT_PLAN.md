@@ -59,6 +59,21 @@ POST /stt/transcribe (multipart file)  ─► cùng các bước kiểm tệp, W
 
 ---
 
+## 3.1. Ghi chú kỹ thuật: STT xử lý âm thanh, không xử lý hình ảnh (bổ sung 12/11/2026)
+
+Tính năng "video → công thức" là **chuyển giọng nói thành văn bản (speech-to-text)**. Hệ thống **không** phân tích khung hình, không dùng Gemini Vision và không gửi ảnh nào của video cho mô hình.
+
+| Bước | Thành phần | Đầu vào → đầu ra | Ghi chú mã nguồn |
+|---|---|---|---|
+| 1. Kiểm tệp | `media.py` | Tệp MP4/MOV → tệp hợp lệ | Kiểm chữ ký `ftyp`, ≤ 100 MB, chỉ host Cloudinary (chống SSRF) |
+| 2. Đọc thông tin | `audio.probe` (ffprobe) | Video → thời lượng, luồng âm thanh, tần số lấy mẫu | Không có luồng âm thanh → `MEDIA_INVALID`; ngoài 10–300 giây → `DURATION_INVALID` |
+| 3. Tách âm thanh | `audio.extract_wav` (ffmpeg) | Video → WAV PCM 16 kHz, mono, 16-bit | Cờ `-vn` **bỏ toàn bộ luồng hình**; chỉ phần âm thanh đi tiếp |
+| 4. Nhận dạng giọng nói | `whisper.py` (faster-whisper `small`, `int8`, beam 5, lọc VAD) | WAV → `rawTranscript` tiếng Việt | Chạy **cục bộ trong stt-service**, không gọi API ngoài, **không tốn token** |
+| 5. Trích công thức | `recipe_extractor.py` (Gemini, chỉ văn bản) | `rawTranscript` → `recipe {title, servings, ingredients, steps}` | Lời nhắc chỉ chứa văn bản phiên âm (đặt trong khối dữ liệu); thiếu số lượng → `null` |
+| 6. Dọn dẹp | `pipeline.py` | — | Xóa tệp video và WAV tạm, kể cả khi lỗi |
+
+Hệ quả cho LLMOps: chỉ bước 5 phát sinh token Gemini. `usage` trả về Backend (ghi `AIQuotaLogs.Feature_Code = SUMMARIZE_VIDEO`) chỉ phản ánh bước này; Whisper không có chi phí theo token, chỉ tốn CPU và bộ nhớ của Cloud Run.
+
 ## 4. Hợp đồng endpoint (Sprint Plan Phụ lục B.3)
 
 Header `X-Internal-Api-Key` bắt buộc (sai/thiếu → 401). JSON camelCase.

@@ -136,12 +136,18 @@ def test_chat_out_of_scope_has_no_sources(settings, store):
     from fastapi.testclient import TestClient
 
     from app.main import create_app
-    llm = FakeLLM('{"answer": "Nội dung này không có trong kho tri thức của VeggieLife.", "recommendedRecipeIds": []}')
+    from app.services.chat.prompt import NO_CONTEXT_ANSWER, NO_CONTEXT_PHRASE
+    llm = FakeLLM('{"answer": "Giá vàng hôm nay là 8 triệu.", "recommendedRecipeIds": []}')
     with TestClient(create_app(settings, llm=llm, store=store)) as c:
         seed(c)
+        generate_before = len(llm.generate_calls)
         r = c.post("/chat/answer", headers=HEADERS, json={"question": "Giá vàng hôm nay là bao nhiêu"}).json()
         assert r["ragUsed"] is False and r["sources"] == []
-        assert "Không có đoạn tri thức nào" in llm.generate_calls[-1][1][-1].text
+        # RAG chặt: không có ngữ cảnh → câu từ chối cố định, không gọi Gemini, 0 token
+        assert r["answer"] == NO_CONTEXT_ANSWER and r["answer"].startswith(NO_CONTEXT_PHRASE)
+        assert len(llm.generate_calls) == generate_before
+        assert r["usage"]["promptTokens"] == 0 and r["usage"]["completionTokens"] == 0
+        assert "Không có đoạn tri thức nào" in r["audit"]["prompt"]
 
 
 def test_chat_unsafe_question_blocked_before_any_ai_call(client, llm):
@@ -155,7 +161,9 @@ def test_chat_plain_text_reply_is_tolerated(settings, store):
 
     from app.main import create_app
     with TestClient(create_app(settings, llm=FakeLLM("Trả lời không phải JSON."), store=store)) as c:
-        r = c.post("/chat/answer", headers=HEADERS, json={"question": "đạm là gì"}).json()
+        seed(c)
+        r = c.post("/chat/answer", headers=HEADERS,
+                   json={"question": "Người ăn chay cần bao nhiêu gam đạm mỗi kg cân nặng?"}).json()
         assert r["answer"] == "Trả lời không phải JSON." and r["recommendedRecipeIds"] == []
 
 
@@ -173,3 +181,65 @@ def test_reindex_nutrition_endpoint(client, settings):
     (d / "02-hong.md").write_text("không có front-matter", encoding="utf-8")
     r = client.post("/rag/reindex/nutrition", headers=HEADERS).json()
     assert r["files"] == 1 and r["chunks"] == 1 and r["failed"][0]["file"] == "02-hong.md"
+
+
+def test_rag_visibility_hides_document_from_chat_and_status(settings, store):
+    """Admin ẩn tài liệu → không còn chunk đang dùng, chat từ chối cố định; bật lại → chat trích dẫn được."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from app.services.chat.prompt import NO_CONTEXT_ANSWER
+    llm = FakeLLM(json.dumps({"answer": "Khoảng 0,8 g/kg [S1].", "recommendedRecipeIds": []}))
+    q = {"question": "Người ăn chay cần bao nhiêu gam đạm mỗi kg cân nặng?"}
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        seed(c)
+        assert c.post("/chat/answer", headers=HEADERS, json=q).json()["ragUsed"] is True
+
+        r = c.post("/rag/visibility", headers=HEADERS, json={"sourceType": "NUTRITION_DOC", "sourceIds": ["1"], "active": False})
+        assert r.status_code == 200 and r.json()["updated"] >= 1
+        st = c.get("/rag/status", headers=HEADERS).json()
+        assert st["bySource"]["NUTRITION_DOC"] == 0 and st["inactivePoints"] >= 1
+        off = c.post("/chat/answer", headers=HEADERS, json=q).json()
+        assert off["answer"] == NO_CONTEXT_ANSWER and off["sources"] == []
+
+        c.post("/rag/visibility", headers=HEADERS, json={"sourceType": "NUTRITION_DOC", "sourceIds": ["1"], "active": True})
+        assert c.post("/chat/answer", headers=HEADERS, json=q).json()["sources"][0]["sourceId"] == "1"
+
+
+def test_chat_only_cites_nutrition_docs(settings, store):
+    """Leader chốt 12/11/2026: chatbot chỉ trích tài liệu dinh dưỡng, không trích bài viết/công thức."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    llm = FakeLLM(json.dumps({"answer": "x", "recommendedRecipeIds": []}))
+    with TestClient(create_app(settings, llm=llm, store=store)) as c:
+        c.post("/rag/upsert", headers=HEADERS, json={"sourceType": "POST", "sourceId": "9", "title": "Chia sẻ công thức",
+               "text": "Canh nấm đậu phụ nấu nhanh giàu đạm."})
+        r = c.post("/chat/answer", headers=HEADERS, json={"question": "Canh nấm đậu phụ nấu nhanh giàu đạm"}).json()
+        assert r["ragUsed"] is False and r["sources"] == []
+
+
+def test_rag_visibility_by_book_no(settings, store):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    with TestClient(create_app(settings, llm=FakeLLM(), store=store)) as c:
+        for sid in ("3001", "3002", "2001", "1"):
+            c.post("/rag/upsert", headers=HEADERS, json={"sourceType": "NUTRITION_DOC", "sourceId": sid,
+                   "title": f"Phần {sid}", "text": "Nội dung sách dinh dưỡng thực vật."})
+        r = c.post("/rag/visibility", headers=HEADERS, json={"sourceType": "NUTRITION_DOC", "bookNo": 3, "active": False})
+        assert r.json()["updated"] == 2
+        assert c.get("/rag/status", headers=HEADERS).json()["bySource"]["NUTRITION_DOC"] == 2
+
+
+def test_rag_visibility_by_source_id_prefix_covers_all_parts(settings, store):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    with TestClient(create_app(settings, llm=FakeLLM(), store=store)) as c:
+        for sid in ("DOC_20261112_abcdef", "DOC_20261112_abcdef_P2", "DOC_20261112_zzzzzz"):
+            c.post("/rag/upsert", headers=HEADERS, json={"sourceType": "NUTRITION_DOC", "sourceId": sid,
+                   "title": sid, "text": "Nội dung sách dinh dưỡng thực vật."})
+        r = c.post("/rag/visibility", headers=HEADERS, json={"sourceType": "NUTRITION_DOC",
+                   "sourceIdPrefix": "DOC_20261112_abcdef", "active": False})
+        assert r.json()["updated"] == 2

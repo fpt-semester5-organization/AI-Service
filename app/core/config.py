@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_min_score: float = 0.65
     rag_timeout_seconds: float = 3.0
+    # Loại nguồn chatbot được trích (Leader chốt 12/11/2026: chỉ tài liệu dinh dưỡng Admin quản lý).
+    chat_rag_source_types: list[str] = ["NUTRITION_DOC"]
+
+    # OCR PDF scan cho kho tri thức (POST /rag/ocr-pdf): Gemini đọc từng lô trang
+    ocr_max_upload_mb: int = 25
+    ocr_max_pages: int = 400
+    ocr_pages_per_batch: int = 6
+    ocr_concurrency: int = 4
+    ocr_temperature: float = 0.0
+    ocr_max_output_tokens: int = 32768
+    ocr_timeout_seconds: float = 180.0  # mỗi lô trang; chép nhiều trang lâu hơn hẳn một lượt chat
     rag_chunk_tokens: int = 500
     rag_chunk_overlap: int = 50
     knowledge_dir: str = "knowledge/nutrition"
@@ -85,7 +96,14 @@ class Settings(BaseSettings):
 
     # Vision (FN-VIS-01)
     vision_temperature: float = 0.2
-    vision_max_output_tokens: int = 4096
+    vision_max_output_tokens: int = 8192  # có thêm trường visualCues cho tối đa 30 mục
+    # Ảnh nhiều món sinh ~4.5k token, Gemini mất 20–50s → timeout riêng, không dùng GEMINI_TIMEOUT_SECONDS (25s) của chat.
+    # Phải nhỏ hơn AI_DETECTION_TIMEOUT_MS của frontend (65s) để người dùng nhận lỗi AI_TIMEOUT rõ ràng. 0 = dùng giá trị chung.
+    vision_timeout_seconds: float = 55.0
+    # Bước 4 kế hoạch cải tiến: token suy nghĩ cho Vision (0 = tắt) và tên trường khung trong schema
+    # ("box2d" hiện hành | "box_2d" theo tài liệu Gemini). Hợp đồng trả về Backend luôn là "box2d".
+    vision_thinking_budget: int = 0
+    vision_box_key: str = "box2d"
 
     # Chat
     chat_history_turns: int = 6

@@ -51,7 +51,7 @@ class Message:
 class LLMClient(Protocol):
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None,
-                       timeout: float | None = None) -> Generation: ...
+                       timeout: float | None = None, thinking_budget: int | None = None) -> Generation: ...
 
     async def embed(self, text: str, *, task: str) -> list[float]: ...
 
@@ -196,13 +196,13 @@ class GeminiClient:
         if self._s.google_genai_use_vertexai:
             return model
         if model.lower() in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-3.8-flash"):
-            return "gemini-3.5-flash"
+            return "gemini-3.1-flash-lite"
         return model
 
 
     async def generate(self, system: str, messages: list[Message], *, temperature: float,
                        max_output_tokens: int, json_schema: dict[str, Any] | None = None,
-                       timeout: float | None = None) -> Generation:
+                       timeout: float | None = None, thinking_budget: int | None = None) -> Generation:
         client = self._get()
         contents = [types.Content(role=m.role, parts=[types.Part(text=m.text), *(
             types.Part.from_bytes(data=i.data, mime_type=i.mime_type) for i in m.images)]) for m in messages]
@@ -215,12 +215,13 @@ class GeminiClient:
             "response_schema": json_schema,
         }
         if effective_timeout and effective_timeout > 0:
-            cfg_kwargs["http_options"] = types.HttpOptions(timeout=int(effective_timeout * 1000))
+            cfg_kwargs["http_options"] = types.HttpOptions(timeout=int(max(30.0, effective_timeout) * 1000))
         target_model = self._resolve_model()
         model_lower = target_model.lower()
-        if any(tag in model_lower for tag in ("2.5", "2.0", "3.0", "3.1", "3.5", "3.6", "3.7", "3.8", "flash", "thinking")):
+        if thinking_budget is not None and thinking_budget > 0:
+            cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
+        elif (thinking_budget == 0 or any(tag in model_lower for tag in ("2.5", "2.0", "3.0", "flash", "thinking"))) and "lite" not in model_lower:
             cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
-
         cfg = types.GenerateContentConfig(**cfg_kwargs)
         started = time.perf_counter()
         resp = await self._call(lambda: self._get().aio.models.generate_content(

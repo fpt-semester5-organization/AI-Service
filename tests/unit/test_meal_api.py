@@ -90,15 +90,15 @@ def test_missing_candidates_is_400(client):
 
 @pytest.mark.parametrize("patch", [
     {"targetDailyCalories": 0}, {"targetDailyCalories": -5}, {"attempt": 0}, {"attempt": 4},
-    {"customInstructions": "x" * 201}, {"candidateRecipes": [{"title": "thiếu id"}]}])
+    {"customInstructions": "x" * 501}, {"candidateRecipes": [{"title": "thiếu id"}]}])
 def test_validation_errors(client, llm, patch):
     r = client.post("/meal/generate", json={**REQ, **patch}, headers=HEADERS)
     assert r.status_code == 400 and r.json()["errorCode"] == "VALIDATION_ERROR"
     assert llm.generate_calls == []
 
 
-def test_custom_instructions_200_chars_ok(settings, store):
-    r, _ = call(settings, store, slots_json(), {**REQ, "customInstructions": "x" * 200})
+def test_custom_instructions_500_chars_ok(settings, store):
+    r, _ = call(settings, store, slots_json(), {**REQ, "customInstructions": "x" * 500})
     assert r.status_code == 200
 
 
@@ -284,4 +284,60 @@ def test_swap_by_note_fallback_selects_matching_ingredient(settings, store):
     assert data["success"] is True
     assert data["selectedRecipeId"] == 130
     assert "Đậu bắp luộc chấm chao ớt" in data["reason"]
+
+
+def test_system_instruction_contains_all_customization_rules():
+    from app.services.meal.prompt import SYSTEM_INSTRUCTION
+    assert "MỤC TIÊU SỨC KHỎE" in SYSTEM_INSTRUCTION
+    assert "LOSE_WEIGHT" in SYSTEM_INSTRUCTION
+    assert "GAIN_MUSCLE" in SYSTEM_INSTRUCTION
+    assert "MAINTAIN" in SYSTEM_INSTRUCTION
+    assert "KHẨU VỊ VÙNG MIỀN" in SYSTEM_INSTRUCTION
+    assert "Miền Bắc" in SYSTEM_INSTRUCTION
+    assert "Miền Trung" in SYSTEM_INSTRUCTION
+    assert "Miền Nam" in SYSTEM_INSTRUCTION
+    assert "TRƯỜNG PHÁI ĂN CHAY" in SYSTEM_INSTRUCTION
+    assert "RequiresAlliumFree" in SYSTEM_INSTRUCTION
+    assert "MỨC NGÂN SÁCH" in SYSTEM_INSTRUCTION
+    assert "ECONOMICAL" in SYSTEM_INSTRUCTION
+    assert "STANDARD" in SYSTEM_INSTRUCTION
+    assert "PREMIUM" in SYSTEM_INSTRUCTION
+    assert "TỦ LẠNH THÔNG MINH" in SYSTEM_INSTRUCTION
+    assert "matchReason" in SYSTEM_INSTRUCTION
+
+
+def test_prompt_includes_personalized_health_region_and_budget(settings, store):
+    body = {
+        **REQ,
+        "healthGoal": "LOSE_WEIGHT",
+        "regionPreference": "NORTH",
+        "budgetTier": "ECONOMICAL",
+        "dietarySchoolName": "Thuần chay (Vegan)",
+        "requiresAlliumFree": True,
+        "targetWeightKg": 51.0,
+    }
+    r, llm = call(settings, store, slots_json(), body)
+    assert r.status_code == 200
+    prompt_text = llm.generate_calls[0][1][0].text
+    assert "Mục tiêu sức khỏe: Giảm cân" in prompt_text
+    assert "Cân nặng mục tiêu: 51.0 kg" in prompt_text
+    assert "Khẩu vị vùng miền: Miền Bắc" in prompt_text
+    assert "Trường phái ăn chay: Thuần chay (Vegan)" in prompt_text
+    assert "Kiêng ngũ vị tân: CÓ" in prompt_text
+    assert "Mức ngân sách dự kiến: Tiết kiệm" in prompt_text
+
+
+def test_prompt_autodetects_criteria_from_custom_instructions(settings, store):
+    body = {
+        **REQ,
+        "customInstructions": "cần giảm cân, thích vị miền Trung, ngân sách tiết kiệm, kiêng ngũ vị tân",
+    }
+    r, llm = call(settings, store, slots_json(), body)
+    assert r.status_code == 200
+    prompt_text = llm.generate_calls[0][1][0].text
+    assert "Mục tiêu sức khỏe: Giảm cân" in prompt_text
+    assert "Khẩu vị vùng miền: Miền Trung" in prompt_text
+    assert "Mức ngân sách dự kiến: Tiết kiệm" in prompt_text
+    assert "Kiêng ngũ vị tân: CÓ" in prompt_text
+
 

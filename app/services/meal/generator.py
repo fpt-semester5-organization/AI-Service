@@ -184,6 +184,12 @@ class MealGenerator:
             req.attempt,
             duration_days=duration_days,
             start_date=start_date,
+            health_goal=req.health_goal,
+            region_preference=req.region_preference,
+            budget_tier=req.budget_tier,
+            dietary_school_name=req.dietary_school_name or req.dietary_school_code,
+            requires_allium_free=req.requires_allium_free,
+            target_weight_kg=req.target_weight_kg,
         )
         schema = build_response_schema(duration_days, start_date) if (duration_days != 7 or start_date) else RESPONSE_SCHEMA
         # Lần xếp lại tăng nhẹ temperature để có phương án khác, vẫn ≤ 0,4.
@@ -236,11 +242,15 @@ class MealGenerator:
         prompt = build_swap_prompt(
             req.current_recipe_id,
             req.swap_note,
-            req.dietary_school_code,
+            req.dietary_school_name or req.dietary_school_code,
             req.meal_type,
             req.target_calories,
             list(excluded),
             valid_candidates,
+            health_goal=req.health_goal,
+            region_preference=req.region_preference,
+            budget_tier=req.budget_tier,
+            requires_allium_free=req.requires_allium_free,
         )
 
         gen = None
