@@ -1,0 +1,109 @@
+name: AI Service CD (Deploy & Publish)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_stt:
+        description: 'Deploy STT Whisper service to Cloud Run'
+        required: true
+        type: boolean
+        default: true
+      publish_ai_image:
+        description: 'Publish Core AI image to Artifact Registry'
+        required: true
+        type: boolean
+        default: true
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT || 'veggielife-510817' }}
+  REGION: ${{ secrets.GCP_REGION || 'asia-southeast1' }}
+  STT_SERVICE: stt-service
+
+jobs:
+  publish-ai-core:
+    name: Build & Push Core AI Docker Image
+    if: ${{ github.event_name == 'push' || github.event.inputs.publish_ai_image == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and Push Core AI Image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/veggielife/ai-service:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/veggielife/ai-service:latest"
+          
+          docker build -t "$IMAGE" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+          echo "Core AI image successfully published: $IMAGE"
+
+  deploy-stt-cloud-run:
+    name: Build & Deploy STT Whisper to Cloud Run
+    if: ${{ github.event_name == 'push' || github.event.inputs.deploy_stt == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and Push STT Service Image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/veggielife/stt-service:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/veggielife/stt-service:latest"
+          
+          docker build -f Dockerfile.stt \
+            --build-arg WHISPER_MODEL=small \
+            --build-arg PRELOAD_MODEL=1 \
+            -t "$IMAGE" -t "$IMAGE_LATEST" .
+            
+          docker push "$IMAGE"
+          docker push "$IMAGE_LATEST"
+          echo "STT image successfully published: $IMAGE"
+          echo "stt_image=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy STT Service to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.STT_SERVICE }} \
+            --project ${{ env.PROJECT_ID }} \
+            --region ${{ env.REGION }} \
+            --image "${{ env.stt_image }}" \
+            --service-account "stt-service@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --memory 4Gi \
+            --cpu 2 \
+            --min-instances 0 \
+            --max-instances 3 \
+            --concurrency 1 \
+            --timeout 600 \
+            --cpu-boost \
+            --allow-unauthenticated \
+            --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GOOGLE_CLOUD_LOCATION=${{ env.REGION }},WHISPER_MODEL=small,WHISPER_COMPUTE_TYPE=int8,WHISPER_DEVICE=cpu,WHISPER_CPU_THREADS=2" \
+            --set-secrets "INTERNAL_API_KEY=stt-internal-api-key:latest"
+
+      - name: Show STT Service Endpoint
+        run: |
+          URL=$(gcloud run services describe ${{ env.STT_SERVICE }} --project ${{ env.PROJECT_ID }} --region ${{ env.REGION }} --format='value(status.url)')
+          echo "STT Service live URL: $URL"
